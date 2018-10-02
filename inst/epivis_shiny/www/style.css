@@ -1,0 +1,4 @@
+/* Make the main content background white instead of gray */
+.skin-black .content-wrapper{
+ background-color: white;
+}

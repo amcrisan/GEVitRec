@@ -2,3 +2,14 @@
 .skin-black .content-wrapper{
  background-color: white;
 }
+
+.dataInput{
+  border:2px lightgray solid;
+  margin-top:10px;
+  padding:10px;
+  border-radius:5px;
+}
+
+.inputTest{
+  color:red;
+}

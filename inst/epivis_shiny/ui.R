@@ -18,8 +18,31 @@ body<-dashboardBody(
   #Tab Item correspond to sidebar menu items
   tabItems(
   tabItem("input_data",
-         p("To do - input data"),
-         actionButton("addDataSource","Add Data Source"),
+         h2("Data Input"),
+         p("Load data sources to visualize. First choose the type of data that you intend to upload, then click on the 'upload' button. Next, choose the file to upload and (if it is available) any additional metadata files associated with that data type."),
+         # Note to self: Made this a DIV to make it easier to automatically add UI elements on the fly underneath it
+         div(id = "dataInputOptions",
+         fluidRow(
+           column(width = 3,
+                  selectInput("datType",
+                              label = "Choose a data type",
+                              selected=NULL,
+                              multiple=FALSE,
+                              choices = c("Phylogenetic Tree",
+                                          "Line List",
+                                          "Interior Map Image",
+                                          "Gel Image",
+                                          "Image",
+                                          "Spatial",
+                                          "Genomic"))),
+           column(3,
+                  textInput("datTypeName",
+                            label = "Provide a dataset name (Optional):",
+                            value  = "")),
+           column(6,
+                  style = "margin-top: 25px;",
+                  actionButton("addDataSource","Add Data Source"))
+           ))),
          actionButton("loadData","Load Data")),
   tabItem("data_vis",
           p("To do - visualization"),

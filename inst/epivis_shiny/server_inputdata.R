@@ -8,24 +8,32 @@
 #----------------------------------------------------
 
 inputDataValues<-reactiveValues(
-  numDataSources = 0
+  numDataSources = 0,
+  dataSrc = NULL
 )
 
+
+#Add a new UI elements whenever the user wants to add a new data source
 observeEvent(input$addDataSource,{
   inputDataValues$numDataSources<-inputDataValues$numDataSources + 1
   
+  #keep a record of the data that was added
+  inputDataValues$dataSrc<-rbind(inputDataValues$dataSrc,
+                                 c(paste0("#dataSource",inputDataValues$numDataSources),input$datType))
+  
+  #create a UI element so that user can add the data source
   insertUI(selector = "#dataInputOptions",
            where = "afterEnd",
            ui = addUI(datType = input$datType,datNum = inputDataValues$numDataSources,datName = input$datTypeName)
            )
   
   #start observer that will remove divs
-  dataInputObserve$resume()
+  dataInputRemoveObserve$resume()
 })
 
 
-#Remove data sources
-dataInputObserve<-observe({
+#Remove a UI element whenever the user wants to remove a data source
+dataInputRemoveObserve<-observe({
   reactOpts<-reactiveValuesToList(input)
   reactOpts<-reactOpts[grepl("removeDataSource",names(reactOpts))]
   reactOpts<-unlist(reactOpts)
@@ -34,29 +42,47 @@ dataInputObserve<-observe({
   
   #remove the data input divs
   if(length(idxRemove)>0){
-    print(reactOpts)
     removeDiv<-names(reactOpts[idxRemove])
     removeDiv<-paste0("#dataSource",gsub("removeDataSource","",removeDiv))
     
     removeUI(selector = removeDiv,immediate=TRUE,multiple=TRUE)
     
+    #also remove the elements from the input data frame
+    keepIdx<-which(!(inputDataValues$dataSrc[1,] %in% removeDiv))
+    
+    inputDataValues$dataSrc<-inputDataValues$dataSrc[keepIdx,]
+    
   }
 },suspended = TRUE)
 
 
+#Loading all of the data
+#Right now, it will load and silently die if things are wrong
+#TO DO: Add error checking - espeically if no data is loaded, it's all NULL
+#TO DO: Add size checking for files that are too large
 observeEvent(input$loadData,{
-  dataInputObserve$suspend()
-  
+
+  #get the data sources from the list of reactive elements
   reactOpts<-reactiveValuesToList(input)
+  
   dataPath<-reactOpts[grepl("dataSource",names(reactOpts))]
-  dataType<-reactOpts[grepl("datType",names(reactOpts))]
+  dataPath[sapply(dataPath, is.null)] <- NULL #get rid of those removed data elements
+  IDs<-paste0("#",gsub("_Files","",names(dataPath)))
+  dataPath<-sapply(dataPath,rbind) %>% t() %>% as.data.frame()
+  dataPath$internalID<-IDs
   
-  #create a data.frame that has all of the data, it's source files
-  inputData<-data.frame(interalID = names(dataPath),
-                        dataPath = unname(unlist(dataType)),
-                        dataType = unname(unlist(dataType)))
+  #finalize the input data source matrix
+  inputDataValues$dataSrc<-as.data.frame(inputDataValues$dataSrc)
+  colnames(inputDataValues$dataSrc)<-c("internalID","dataType")
   
-  #print(inputData)
+  #the idea here is to load the data at the last possible minute, 
+  #and avoid loading data source that are not needed
+  inputDataValues$dataSrc<-dplyr::left_join(inputDataValues$dataSrc,dataPath,by="internalID")
+  
+  #stop listening for the data removal button
+  dataInputRemoveObserve$suspend()
+  
+  updateTabItems(session,"sideBarMenuOptions","data_vis")
   
 })
 

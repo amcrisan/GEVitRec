@@ -12,8 +12,8 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
              if(datType == "Phylogenetic Tree"){
                ####### INPUT IS GENOMIC DATA
                # Upload Phylogenetic Tree and optional metadata
-               tagList(h4(tagList(img(src="img/phylogeny.png",height="20px"), getName())),
-                       shiny::fileInput(paste0("datSource",datNum),
+               tagList(h4(tagList(img(src="img/phylogeny.png",height="20px"), getName(datType,datName))),
+                       shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                 width = '100%', 
                                 label = "Choose phylogenetic tree file to load (.nwk, .newick, .tree, .tre formats accepted)",
                                 accept = c(".nwk",".tree",".newick",".tre")))
@@ -22,7 +22,7 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
                ####### INPUT IS GENOMIC DATA
                ## FOR THIS - CONSIDER HOW TO SWAP BETWEEN DIRECTORY TO UPLOAD AND FILE TO UPLOAD
                tagList(h4(tagList(img(src="img/genome.png",height="20px"), datType)),
-                       shiny::fileInput(paste0("datSource",datNum),
+                       shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                 width = '100%', 
                                 label = "Choose genomic file OR directory to upload (.vcf format accepted)",
                                 accept = c(".vcf"),
@@ -30,8 +30,8 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
                )
               }else if(datType == "Spatial"){
                 ####### INPUT IS SPATIAL DATA
-                tagList(h4(tagList(img(src="img/spatial.png",height="50px"), datType)),
-                        shiny::fileInput(paste0("datSource",datNum),
+                tagList(h4(tagList(img(src="img/spatial.png",height="25px"), datType)),
+                        shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                  width = '100%', 
                                  label = "Choose spatial file to upload (.sp format accepted)",
                                  accept = c(".sp"))
@@ -39,11 +39,11 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
               }else if(datType %in% c("Interior Map Image", "Image","Gel Image")){
                 ####### INPUT IS IMAGE DATA
                 tagList(switch(datType,
-                               "Interior Map Image" = h4(tagList(img(src="img/interior_map.png",height="20px"), datType)),
+                               "Interior Map Image" = h4(tagList(img(src="img/interior_map.png",height="50px"), datType)),
                                "Image" = h4(tagList(img(src="img/image.png",height="20px"), datType)),
                                "Gel Image" = h4(tagList(img(src="img/genome.png",height="20px"), datType))
                                ),
-                        shiny::fileInput(paste0("datSource",datNum),
+                        shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                  width = '100%', 
                                  label = "Choose spatial file to upload (.jpeg,.jpg, .tiff, .png, and .pdf format accepted)",
                                  accept = c(".jpeg",".jpg",".tiff",".png",".pdf"))
@@ -51,7 +51,7 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
               }else{
               ####### INPUT IS LINE LIST / METADATA
                 tagList(h4(tagList(img(src="img/spreadsheet.png",height="20px"), datType)),
-                  shiny::fileInput(paste0("datSource",datNum),
+                        shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                 width = '100%', 
                                 label = "Choose metadata file to load (.csv, . xls, .xlsx, .tsv accepted)",
                                 accept = c(".csv",".xls",".xlsx",".tsv"))
@@ -67,7 +67,7 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
   return(uiOut)
 }
 
-getName<-function(datType = NULL,datName == ""){
+getName<-function(datType = NULL,datName = ""){
   return(paste0(datType,ifelse(datName=="","",paste0(" - ",datName))))
 }
 

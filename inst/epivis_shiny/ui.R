@@ -3,11 +3,10 @@ library(shinydashboard)
 library(leaflet)
 library(epivis)
 
-
 #-------------------------------------------------------------------------
 # DASHBOARD HEADER
 #-------------------------------------------------------------------------
-header<-dashboardHeader(title="epivis @ BCCDC")
+header<-dashboardHeader(title="Epivis @ BCCDC")
 
 #-------------------------------------------------------------------------
 # MAIN DASHBOARD BODY
@@ -42,11 +41,21 @@ body<-dashboardBody(
            column(6,
                   style = "margin-top: 25px;",
                   actionButton("addDataSource","Add Data Source"))
-           ))),
+           )),
+         br(),
          actionButton("loadData","Load Data")),
   tabItem("data_vis",
-          p("To do - visualization"),
-          plotOutput("distPlot")),
+          h2("Data Input"),
+          p("Visualize data - currently a work in progress"),
+          tabsetPanel(id = "visPanel",
+                      type="pill",
+                      tabPanel("Summary Overview",
+                               p("Summary data visualization here")),
+                               #plotOutput("summaryVisualization")),
+                      tabPanel("Individual",
+                               p("Individual data visualizations here"))
+                      )
+          ),
   tabItem("data_analytics",
           p("To do - analytics")),
   tabItem("output_reports",

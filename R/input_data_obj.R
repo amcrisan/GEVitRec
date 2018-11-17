@@ -3,6 +3,7 @@
 setClass(
   "gevitDataObj",
   slots = c(
+    id = "character",
     type = "character",
     source = "character",
     data = "list"
@@ -55,3 +56,5 @@ setMethod("getAllData",
             return(object@data)
           }
 )
+
+

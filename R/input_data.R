@@ -1,6 +1,14 @@
+#Function that creates a unique ID for each data item
+#code from: https://stackoverflow.com/questions/42734547/generating-random-strings
+randID <- function(n = 1) {
+  a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
+  paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
+}
+
+
 #Generic input function for inputing data, helper functions are in the back
 #' @export
-input_data<-function(file  = NA, dataType = NA, desc = NA,...){
+input_data<-function(file  = NA, dataType = NA, asObj=TRUE,desc = NA,...){
   #Only supports specific data types
   #TODO: data for sequence alignment
   if(!(dataType %in% c("tree","table","dna","spatial","image")))
@@ -8,17 +16,20 @@ input_data<-function(file  = NA, dataType = NA, desc = NA,...){
   
   print(as.list(match.call()))
   
+  #make a unique ID for each object
+  dataID<-randID()
+  
   switch(dataType,
-         "table" = input_table(file,desc,...),
-         "tree" = input_phyloTree(file,desc,...),
-         "dna" = input_dna(file,desc,...),
-         "spatial" = input_spatial(file,desc,proj4String,...),
-         "image" = input_image(file,desc,...))
+         "table" = input_table(file,asObj,dataID,desc,...),
+         "tree" = input_phyloTree(file,asObj,dataID,desc,...),
+         "dna" = input_dna(file,asObj,dataID,desc,...),
+         "spatial" = input_spatial(file,asObj,dataID,desc,proj4String,...),
+         "image" = input_image(file,asObj,dataID,desc,...))
 }
 
 
 #Helper function: inputs tables
-input_table<-function(file=NA,stringsAsFactors = FALSE,desc=NA,asObj=TRUE,...){
+input_table<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,stringsAsFactors = FALSE,...){
   #autodetect file type
   if(stringr::str_detect(file,"xls$|xlsx$")){
     dat<-readxl::read_excel(path=file,...)
@@ -32,6 +43,7 @@ input_table<-function(file=NA,stringsAsFactors = FALSE,desc=NA,asObj=TRUE,...){
   
   if(asObj){
     objDat<-new("gevitDataObj",
+                id  = paste("table",dataID,sep="_"),
                 type = "table",
                 source = file,
                 data = list(table = dat))
@@ -42,7 +54,7 @@ input_table<-function(file=NA,stringsAsFactors = FALSE,desc=NA,asObj=TRUE,...){
 }
 
 #Helper function : input dna
-input_dna<-function(file=NA,desc = NA,asObj=TRUE,fileType=NA,...){
+input_dna<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,fileType=NA,...){
   #check to see what kinds of files the user has
   if(dir.exists(file)){
     #actions for a directory
@@ -77,6 +89,7 @@ input_dna<-function(file=NA,desc = NA,asObj=TRUE,fileType=NA,...){
       toDNABIN()
     
     objDat<-new("gevitDataObj",
+                id  = paste("dna",dataID,sep="_"),
                 type = "dna",
                 source = fileList,
                 data = list(dnaBin=outInfo))
@@ -88,7 +101,8 @@ input_dna<-function(file=NA,desc = NA,asObj=TRUE,fileType=NA,...){
       fileType<-dna_detectFileType(file)
     }
     
-    if(is.na(fileType))
+    
+    if(!(fileType %in% c("vcf","fasta")))
       stop("Only VCF and FASTA files are supported at this time")
     
     #run approperiate input function given the file type
@@ -98,13 +112,13 @@ input_dna<-function(file=NA,desc = NA,asObj=TRUE,fileType=NA,...){
     
     
     if(asObj){
-      if(fileType == "fasta"){
-        output<-toDNABIN(output)
-      }else if(fileType == "vcf"){
-        output<-toDNABIN(output)
-      }
-      
+      output<-ifelse(fileType == "fasta",
+                     toDNABIN(output,"fasta"),
+                     toDNABIN(output,"vcf")
+             )
+
       objDat<-new("gevitDataObj",
+                  id  = paste("dna",dataID,sep="_"),
                   type = "dna",
                   source = file,
                   data = list(dnaBin=output))
@@ -127,14 +141,14 @@ dna_detectFileType<-function(file){
 }
 
 #helper function to create a DNA bin object
-toDNABIN<-function(dat = NULL){
+toDNABIN<-function(dat = NULL,datType=NA){
   #Likely a matrix
-  if(ncol(dat) >2){
+  if(datType=="vcf"){
     #generate alignment
     refSeq<-dplyr::distinct(dat,CHROM,POS,REF)
     grp<-unique(dat$SAMPID)
     mat<-matrix(".",length(grp),nrow(refSeq))
-    
+  
     for(i in 1:length(grp)){
       seq<-refSeq$REF
       tmp<-dplyr::filter(dat,SAMPID == grp[i])
@@ -148,10 +162,10 @@ toDNABIN<-function(dat = NULL){
     
     #return DNA bin object
     return(ape::as.DNAbin(mat))
-  }else if(ncol(dat)==2){
+  }else if(datType == "fasta"){
     #likely fasta string
     samps<-as.character(dat$seq)
-    names(samps)<-dat$ID
+    names(samps)<-dat$SAMPID
     return(as.DNAbin.DNAStringSet(samps))
   }
   
@@ -196,20 +210,20 @@ input_fasta<-function(file=NA,...){
     tmp<-data.table::fread(file,stringsAsFactors = FALSE,header = FALSE)
   }
   #tmp<-ape::read.FASTA(file=file,type="DNA")
-  idxSamp<-which(apply(tmp,1,function(x){grepl(">",x)}))
+  idxSamp<-which(sapply(tmp,function(x){grepl(">",x)}))
   samps<-c()
   for(i in 1:length(idxSamp)){
-    start = idxSamp[i]+1
+    start = idxSamp[i]+1 #start *after* the sample ID
     end<-ifelse(i == length(idxSamp),nrow(tmp),idxSamp[i+1]-1)
-    samps<-rbind(samps,tmp[start:end,paste0(V1,collapse="")])
+    samps<-rbind(samps,paste0(sapply(tmp[start:end,"V1"],as.character),collapse = ""))
   }
-  names(samps)<-gsub(">","",tmp[idxSamp,c(V1)])
+  #rownames(samps)<-gsub(">","",tmp[idxSamp,"V1"])
   #tst<-as.DNAbin.DNAStringSet(samps)
-  return(data.frame(seq=samps,ID=names(samps)))
+  return(data.frame(seq=samps,SAMPID=gsub(">","",tmp[idxSamp,"V1"])))
 }
 
 #Helpfer function : input spatial data
-input_spatial<-function(file=NA,desc = NA,...){
+input_spatial<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   
   if(!stringr::str_detect(file,"shp$")){
     stop("Currently, the input file only loads shapefiles. Is your map an image file? Please choose set dataType to 'image' in order to load it properly")
@@ -223,6 +237,7 @@ input_spatial<-function(file=NA,desc = NA,...){
   
   if(asObj){
     objDat<-new("gevitDataObj",
+                id  = paste("spatial",dataID,sep="_"),
                 type = "spatial",
                 source = file,
                 data = list(geometry=nc))
@@ -242,17 +257,21 @@ input_spatial<-function(file=NA,desc = NA,...){
 #' @return a phylo tree object
 #'
 #' @examples
-input_phyloTree<-function(file = NA, desc = NA,sepLabel = NA,metadataFile=NULL,asObj=TRUE,...){
+input_phyloTree<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,sepLabel = NA,metadataFile=NULL,...){
   #Make sure that tree has the right format to load
   if(!stringr::str_detect(file,"tree$|nwk$|tre$|newick$|nexus$")){
     stop("Phylogenetic tree file cannot be loaded. Please ensure that your tree has a .tree, .tre, .nwk, or .nexus format.")
   }
   
   #Try to load the tree, if for whatever reason it can't be loaded, throw error
-  tree<-tryCatch(treeio::read.tree(file=file,...),
-                 error = function(e) stop("Could not load tree."))
+  tree<-treeio::read.tree(file=file)
+  #tree<-tryCatch(treeio::read.tree(file=file,...),
+  #               error = function(e) stop("Could not load tree."))
   
   
+  #Create a separate data frame the contains the tipData
+  #If there is a bunch of information stored in the tip data
+  #use the sep-label command to split it into a table
   if(!is.na(sepLabel)){
     #if it is a special character add escape
     if(grepl('[[:punct:]]', sepLabel))
@@ -262,7 +281,7 @@ input_phyloTree<-function(file = NA, desc = NA,sepLabel = NA,metadataFile=NULL,a
     tipDat<-tryCatch(do.call(rbind,strsplit(tree$tip.label,sepLabel)),
                      error = function(e) return(NULL))
   }else{
-    tipDat<-NULL
+    tipDat<-tree$tip.label
   }
   
   #if the user added metadata load too
@@ -285,7 +304,8 @@ input_phyloTree<-function(file = NA, desc = NA,sepLabel = NA,metadataFile=NULL,a
   
   if(asObj){
     objDat<-new("gevitDataObj",
-                type = "tree",
+                id  = paste("phyloTree",dataID,sep="_"),
+                type = "phyloTree",
                 source = file,
                 data = list(tree=tree)
     )
@@ -293,7 +313,7 @@ input_phyloTree<-function(file = NA, desc = NA,sepLabel = NA,metadataFile=NULL,a
     if(!is.null(tipDat))
       objDat@data$tipData<-tipDat
     
-    if(!is.null(metadata)){
+    if(!is.null(metadataFile)){
       objDat@source<-c(objDat@source,metadataFile)
       objDat@data$metadata<-metadata
       
@@ -316,7 +336,7 @@ input_phyloTree<-function(file = NA, desc = NA,sepLabel = NA,metadataFile=NULL,a
 #'
 #' @return
 #' @examples
-input_image<-function(file = NA,desc = NA,asObj=TRUE,...){
+input_image<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   img<-magick::image_read(path=file)
   
   #all images get resized so that they are mangeable to work with
@@ -341,6 +361,7 @@ input_image<-function(file = NA,desc = NA,asObj=TRUE,...){
   
   if(asObj){
     objDat<-new("gevitDataObj",
+                id  = paste("image",dataID,sep="_"),
                 type = "image",
                 source = file,
                 data = list(img=img,imgDetails = imgDetails)

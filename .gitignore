@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+
+inst/epivis_shiny/sandbox
+inst/epivis_shiny/data

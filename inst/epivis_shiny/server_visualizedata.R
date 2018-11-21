@@ -6,8 +6,3 @@
 # This file is added with source(..., local = TRUE)
 # so variables here are accessible in server.R
 #----------------------------------------------------
-
-
-output$summaryVisualization<-renderPlot({
-  generateSummaryVisualization(inputDataValues$dataSec)
-})

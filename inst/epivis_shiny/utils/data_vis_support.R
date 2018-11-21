@@ -4,53 +4,35 @@
 # Helpder function that support visualizing the data
 #----------------------------------------------------
 
-#generate the summary data visualizations
-generateSummaryVisualization<-function(inputData){
-  #figure out what kind of data you have
+plot_decider<-function(dataVis = NA,allDataVis=NA){
+  #Get the data type of the individual data source
+  itemVis<-dplyr::filter(allDataVis$allObjMeta,dataID == dataVis)
   
-  #scan data to identify potentially common linking variables
+  #If it's a table - do this
+  if(itemVis$dataType == "table"){
+    return(p("I AM A TABLE"))
+  }else{
+    
+    #If it's not a table - do everything else
+    mainComponent<-p(as.character(itemVis$dataType))
+    
+    #Is there a way to connect this data source to others?
+    #If yes, provide combination options
+    conGraphNodes<-unique(c(allDataVis$varComp$item_one,allDataVis$varComp$item_two))
+    if(as.character(itemVis$dataID) %in% conGraphNodes ){
+      accessoryComponents<-p("SIDE HUSTLE")
+    }
   
+    #Lay this bad-boy out as two columns
+    uiOut<-div(
+      column(8,
+             mainComponent),
+      column(4,
+             accessoryComponents)
+    )
+    
+    return(uiOut)
+  }
   
-  #just for tabluar data, classify some of the columns by data type
-  
+  #Output the resulting data visualization
 }
-
-
-### NOTE - DECIDE NOW OR LATER WHETHER TO PROMOTE THESE FUNCTIONS TO PACKAGE LEVEL
-#scan tablular data, flagg items that are
-getTableItems<-function(tabDat = NULL){
-  tabDatMeta<-sapply(tabDat,class) %>% stack()
-  colnames(tabDatMeta)<-c("colType","colName")
-  
-  #now, some cleaning up to detect special words that relate to time, geography, and genomics
-  #these are special classes of generally continous variables that can be used in the visualization
-  #GEOGRAPHY VARIABLES
-  geo_var_latlong<-c("latitude","longitude","lat","lon")
-  idx<-idxVarType(geo_var_latlong,tabDatMeta$colName)
-  if(!is.null(idx)) tabDatMeta[idx,]$colType<-"lat:long"
-  
-  #TEMPORAL VARIABLES
-  time_var<-c("date","month","year","day")
-  idx<-idxVarType(time_var,tabDatMeta$colName)
-  if(!is.null(idx)) tabDatMeta[idx,]$colType<-"temporal"
-  
-  return(tabDatMeta)
-}
-
-#simple fuction to find some 
-idxVarType<-function(var,listVar){
-  listVar<-as.character(listVar)
-  idx<-sapply(var,function(x){grepl(x,listVar)}) %>% 
-    apply(.,1,any) %>% which()
-  
-  return(idx)
-}
-
-#a function that attempts to identify linking variables between different
-#data types. Most useful when there is a table invovled.
-linkingVars<-function(datDF=NULL){
-  
-}
-
-
-

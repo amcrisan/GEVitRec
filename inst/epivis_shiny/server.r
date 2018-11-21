@@ -5,7 +5,7 @@ library(stringr)
 #library(epivis) #this will load all the analytic functions in the R subfolder
 
 source("utils/data_load_support.R") #additional functions that support input of data to shiny app
-#source("utils/data_vis_support.R") #additiona functions that support data visualization in shiny app
+source("utils/data_vis_support.R") #additiona functions that support data visualization in shiny app
 
 liveStatus<-TRUE #testing code for data input functions. eventually should be removed
 dataDict<-readxl::read_xlsx(path="data_dictionaries/universal_data_dictionary.xlsx")
@@ -95,7 +95,7 @@ shinyServer(function(input, output,session) {
   })
   
   observeEvent(input$visDataSet,{
-    visData$individualVis<-p("FIRE THE MISSLES!")
+    visData$individualVis<-plot_decider(input$visDataSet,inputDataValues)
   })
   
   #source("server_visualizeData.R",local=TRUE)

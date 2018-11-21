@@ -69,6 +69,7 @@ observeEvent(input$loadData,{
   #cleaning up the data to sort out what's actually been loaded into the system
   dataPath<-reactOpts[grepl("dataSource",names(reactOpts))]
   dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
+  
   dataPath$internalID<-paste0("#",gsub("_Files","",dataPath[,1]))
   
   #finalize the input data source matrix

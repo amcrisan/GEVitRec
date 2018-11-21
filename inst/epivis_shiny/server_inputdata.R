@@ -7,11 +7,6 @@
 # so variables here are accessible in server.R
 #----------------------------------------------------
 
-inputDataValues<-reactiveValues(
-  numDataSources = 0,
-  dataSrc = NULL
-)
-
 
 #Add a new UI elements whenever the user wants to add a new data source
 observeEvent(input$addDataSource,{
@@ -34,24 +29,30 @@ observeEvent(input$addDataSource,{
 
 #Remove a UI element whenever the user wants to remove a data source
 dataInputRemoveObserve<-observe({
+  #get the list of reactive elements
   reactOpts<-reactiveValuesToList(input)
+  
+  #find those elements tagged with "remove data source", and clean it up a little
   reactOpts<-reactOpts[grepl("removeDataSource",names(reactOpts))]
-  reactOpts<-unlist(reactOpts)
   
-  idxRemove<-which(reactOpts>0)
-  
-  #remove the data input divs
-  if(length(idxRemove)>0){
-    removeDiv<-names(reactOpts[idxRemove])
-    removeDiv<-paste0("#dataSource",gsub("removeDataSource","",removeDiv))
+  if(length(reactOpts)>1){
+    reactOpts<-data.frame(id = paste0("#d",gsub("removeD","",names(reactOpts))),
+                     removeValue = unname(sapply(reactOpts,function(x){x})),
+                     stringsAsFactors = FALSE)
     
-    removeUI(selector = removeDiv,immediate=TRUE,multiple=TRUE)
+    #identify elements for removal
+    idxRemove<-which(reactOpts$removeValue>0)
     
-    #also remove the elements from the input data frame
-    keepIdx<-which(!(inputDataValues$dataSrc[1,] %in% removeDiv))
-    
-    inputDataValues$dataSrc<-inputDataValues$dataSrc[keepIdx,]
-    
+    #remove the data input divs
+    if(length(idxRemove)>0){
+      #actually remove the elmements from the UI 
+      removeDiv<-as.character(reactOpts[idxRemove,"id"])
+      removeUI(selector = removeDiv,immediate=TRUE,multiple=TRUE)
+      
+      #also remove the elements from the input data frame
+      keepIdx<-which(!(inputDataValues$dataSrc[,1] %in% removeDiv))
+      inputDataValues$dataSrc<-inputDataValues$dataSrc[keepIdx,]
+    }
   }
 },suspended = TRUE)
 
@@ -64,12 +65,11 @@ observeEvent(input$loadData,{
 
   #get the data sources from the list of reactive elements
   reactOpts<-reactiveValuesToList(input)
-  
+
+  #cleaning up the data to sort out what's actually been loaded into the system
   dataPath<-reactOpts[grepl("dataSource",names(reactOpts))]
-  dataPath[sapply(dataPath, is.null)] <- NULL #get rid of those removed data elements
-  IDs<-paste0("#",gsub("_Files","",names(dataPath)))
-  dataPath<-sapply(dataPath,rbind) %>% t() %>% as.data.frame()
-  dataPath$internalID<-IDs
+  dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
+  dataPath$internalID<-paste0("#",gsub("_Files","",dataPath[,1]))
   
   #finalize the input data source matrix
   inputDataValues$dataSrc<-as.data.frame(inputDataValues$dataSrc)
@@ -81,6 +81,45 @@ observeEvent(input$loadData,{
   
   #stop listening for the data removal button
   dataInputRemoveObserve$suspend()
+  
+  #---------------------------------------------------------------------
+  # DATA STRUCTURE TO RULE THEM ALL
+  # Puts all the data into three data structures for further processing
+  #---------------------------------------------------------------------
+  
+  allObj<-makeGEVITRobj(dataSrc = inputDataValues$dataSrc,liveStatus = liveStatus)
+  
+  allObjMeta<-data.frame(dataID = sapply(allObj,function(x){x@id}),
+                         dataType= sapply(allObj,function(x){x@type}),
+                         dataSource = sapply(allObj,function(x){x@source}))
+  
+  # 1. READ THE INFORMATION OUT OF THE TABLES (IF ANY)
+  #load necessary data dictionary
+  tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
+  
+  # 2. FIND LINKS BETWEEN DIFFERENT DATA OBJECTS
+  varComp<-findLink(allObj=allObj,allObjMeta=allObjMeta)
+  
+  #3. LAST STEP : ADD TABLE DATA TO OBJECT META
+  dataType = apply(tabScanned[,c("class","specialClass")],1,function(x){
+    ifelse(is.na(x[2]),x[1],paste(x[1],x[2],sep=";"))
+    })
+  
+  tabScanned<-data.frame(dataID=tabScanned$variable,
+                         dataType= dataType,
+                         dataSource = tabScanned$tableSource)
+  
+  allObjMeta<-rbind(allObjMeta,tabScanned)
+  
+  #Assignment to reactive variables and removal of extra stuff
+  inputDataValues$allObj<-allObj
+  inputDataValues$allObjMeta<-allObjMeta
+  inputDataValues$varComp<-varComp
+  
+  #remove(c("allObj","allObjMeta","varComp"))
+  #gc()
+  
+  #### NOW UPDATE TO THE VISUALIZATION TAB
   
   updateTabItems(session,"sideBarMenuOptions","data_vis")
   

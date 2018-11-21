@@ -18,17 +18,17 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
                                 label = "Choose phylogenetic tree file to load (.nwk, .newick, .tree, .tre formats accepted)",
                                 accept = c(".nwk",".tree",".newick",".tre")))
                
-             }else if(datType == "Genomic"){
+             }else if(datType %in% c("FASTA","VCF")){
                ####### INPUT IS GENOMIC DATA
                ## FOR THIS - CONSIDER HOW TO SWAP BETWEEN DIRECTORY TO UPLOAD AND FILE TO UPLOAD
                tagList(h4(tagList(img(src="img/genome.png",height="20px"), datType)),
                        shiny::fileInput(paste0("dataSource",datNum,"_Files"),
                                 width = '100%', 
-                                label = "Choose genomic file OR directory to upload (.vcf format accepted)",
-                                accept = c(".vcf"),
+                                label = "Choose genomic file OR directory to upload (.vcf ,.vcf.gz, .fasta, and .fasta.gz format accepted)",
+                                accept = c(".vcf",".vcf.gz",".fasta",".fasta.gz"),
                                 multiple = TRUE)
                )
-              }else if(datType == "Spatial"){
+              }else if(datType == "Shape File"){
                 ####### INPUT IS SPATIAL DATA
                 tagList(h4(tagList(img(src="img/spatial.png",height="25px"), datType)),
                         shiny::fileInput(paste0("dataSource",datNum,"_Files"),
@@ -69,5 +69,34 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
 
 getName<-function(datType = NULL,datName = ""){
   return(paste0(datType,ifelse(datName=="","",paste0(" - ",datName))))
+}
+
+#add all of the epivis dataSec files into a nice gevitr data object
+
+makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
+  tmp<-apply(dataSrc,1,function(dat,live){
+    datType<-as.character(dat[["dataType"]])
+    if(live){
+      datSource<-as.character(dat[["datapath"]]) #this is the code that needs to run in live
+    }else{
+      #####  v TMP TEST SOLN v ############
+      source<-switch(datType,
+                     "Phylogenetic Tree" = "/tree_data/",
+                     "Line List" = "/table_data/" )
+      #temporary soln
+      datSource<-paste0(dataPath,source,as.character(dat[["name"]]))
+      #####  ^ TMP TEST SOLN ^ ############
+    }
+    
+    #convert data type from friendly external to more efficient internal
+    datType<-switch(datType,
+                    "Phylogenetic Tree" = "tree",
+                    "Line List" = "table")
+    
+    #produces a gevitR data object!!!
+    input_data(file=datSource,dataType=datType)
+  },live=liveStatus)
+  
+  return(tmp)
 }
 

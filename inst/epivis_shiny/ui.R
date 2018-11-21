@@ -6,7 +6,7 @@ library(epivis)
 #-------------------------------------------------------------------------
 # DASHBOARD HEADER
 #-------------------------------------------------------------------------
-header<-dashboardHeader(title="Epivis @ BCCDC")
+header<-dashboardHeader(title="genepiDRIVE @ BCCDC")
 
 #-------------------------------------------------------------------------
 # MAIN DASHBOARD BODY
@@ -32,8 +32,9 @@ body<-dashboardBody(
                                           "Interior Map Image",
                                           "Gel Image",
                                           "Image",
-                                          "Spatial",
-                                          "Genomic"))),
+                                          "Shape File",
+                                          "FASTA",
+                                          "VCF"))),
            column(3,
                   textInput("datTypeName",
                             label = "Provide a dataset name (Optional):",
@@ -44,6 +45,12 @@ body<-dashboardBody(
            )),
          br(),
          actionButton("loadData","Load Data")),
+  tabItem("input_data_summary",
+          h2("Data Input Summary"),
+          p("Mostly to be used for testing purposes, it provides a summary of all the data read in, how it is categorized by the system, and finally, what data linkages the system has discovered"),
+          tableOutput("dataSummaryTable"),
+          tableOutput("dataLinkageTable")
+          ),
   tabItem("data_vis",
           h2("Data Input"),
           p("Visualize data - currently a work in progress"),
@@ -53,7 +60,10 @@ body<-dashboardBody(
                                p("Summary data visualization here")),
                                #plotOutput("summaryVisualization")),
                       tabPanel("Individual",
-                               p("Individual data visualizations here"))
+                               p("Individual data visualizations here"),
+                               uiOutput("dataOptions"),
+                               br(),
+                               uiOutput("indVis"))
                       )
           ),
   tabItem("data_analytics",
@@ -70,6 +80,7 @@ sidebar<-dashboardSidebar(
  #sidebar menu
  sidebarMenu(id = "sideBarMenuOptions",
              menuItem("Input Data", tabName = "input_data"),
+             menuItem("Input Data Summary",tabName = "input_data_summary"),
              menuItem("Visualization", tabName = "data_vis"),
              menuItem("Analytics", tabName = "data_analytics"),
              menuItem("Reports", tabName = "output_reports")),
@@ -81,8 +92,6 @@ sidebar<-dashboardSidebar(
              max = 50,
              value = 30))
 )
-
-
 
 #-------------------------------------------------------------------------
 # PUTTING THE DASHABORD ALL TOGETHER

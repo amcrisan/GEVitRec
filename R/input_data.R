@@ -14,7 +14,7 @@ input_data<-function(file  = NA, dataType = NA, asObj=TRUE,desc = NA,...){
   if(!(dataType %in% c("tree","table","dna","spatial","image")))
     stop("Data type is not supported. Please choose one of : tree, table, dna, spatial, image. Use ?input_data to learn more about the different input types.")
   
-  print(as.list(match.call()))
+  #print(as.list(match.call())) #for testing only
   
   #make a unique ID for each object
   dataID<-randID()
@@ -263,8 +263,9 @@ input_phyloTree<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,sepLabel = NA,met
     stop("Phylogenetic tree file cannot be loaded. Please ensure that your tree has a .tree, .tre, .nwk, or .nexus format.")
   }
   
-  #Try to load the tree, if for whatever reason it can't be loaded, throw error
+  #Try to load the tree
   tree<-treeio::read.tree(file=file)
+  #not sure why the tryCatch below is not working
   #tree<-tryCatch(treeio::read.tree(file=file,...),
   #               error = function(e) stop("Could not load tree."))
   

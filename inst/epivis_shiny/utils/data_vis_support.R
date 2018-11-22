@@ -4,15 +4,20 @@
 # Helpder function that support visualizing the data
 #----------------------------------------------------
 
-plot_decider<-function(dataVis = NA,allDataVis=NA){
+#main function that decides what kind of data visualization to produce
+plot_decider<-function(dataVis = NA,data=NA,dataMeta=NA,visChoices=NULL){
   #Get the data type of the individual data source
-  itemVis<-dplyr::filter(allDataVis$allObjMeta,dataID == dataVis)
+  itemVis<-dplyr::filter(dataMeta,dataID == dataVis)
+  
+  mainComponent<-NULL
+  accessoryComponents<-NULL
   
   #If it's a table - do this
   if(itemVis$dataType == "table"){
-    return(p("I AM A TABLE"))
+    mainComponent<-tabVis(as.character(itemVis$dataID),data,dataMeta,visChoices)[[1]]$plotItem
+    #mainComponent<-p("AM A THING")
+    accessoryComponents<-p("SIDE HUSTLE")
   }else{
-    
     #If it's not a table - do everything else
     mainComponent<-p(as.character(itemVis$dataType))
     
@@ -22,17 +27,17 @@ plot_decider<-function(dataVis = NA,allDataVis=NA){
     if(as.character(itemVis$dataID) %in% conGraphNodes ){
       accessoryComponents<-p("SIDE HUSTLE")
     }
-  
-    #Lay this bad-boy out as two columns
-    uiOut<-div(
-      column(8,
-             mainComponent),
-      column(4,
-             accessoryComponents)
-    )
-    
-    return(uiOut)
   }
   
+  #uiOut<-div(
+  #  column(8,
+  #         mainComponent),
+  #  column(4,
+  #         accessoryComponents)
+  #)
+  
+  #Lay this bad-boy out as two columns
+  #return(uiOut)
+  return(mainComponent)
   #Output the resulting data visualization
 }

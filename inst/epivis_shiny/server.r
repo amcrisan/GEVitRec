@@ -1,3 +1,4 @@
+devtools::load_all()
 library(shiny)
 library(dplyr)
 library(stringr)
@@ -84,9 +85,43 @@ shinyServer(function(input, output,session) {
                    choices=as.character(majorDataType$dataID),
                    selected=NULL,
                    multiple=FALSE)
+    
   })
   
-  output$indVis<-renderUI({
+  output$tableOptions<-renderUI({
+    if(is.null(input$visDataSet) | is.null(inputDataValues$allObj))
+      return(NULL)
+    
+   #Did the user select a table?
+    dataVis<-input$visDataSet
+    itemVis<-dplyr::filter(inputDataValues$allObjMeta,dataID == dataVis)
+    
+    optionUI<-NULL
+    if(as.character(itemVis$dataType)=="table"){
+      #for tables, get the possible variables to visualize
+      visOptions<-dplyr::filter(inputDataValues$allObjMeta,dataSource == dataVis)$dataID %>% as.character()
+      optionUI<-div(
+        column(4,
+               HTML("<p>Please choose what variables you want to visualize and the genepi DRIVE engine will take it from there. If you want the DRIVE enginge to come up with what it judges to be the (up to) five best charts for you data than leave the box below empty and select the 'visualize it!' button.</p>")
+               ),
+        column(8,
+               selectizeInput("tabVisChoices",
+                              label="Create visualizations with the following variables:",
+                              choices = visOptions,
+                              selected=NULL,
+                              multiple=TRUE,
+                              width='35%'),
+               actionButton("excelsior","visualize it!",width='35%')
+               )
+        )
+      
+    }else{
+      optionUI<-div(actionButton("excelsior","visualize it!"))
+    }
+    return(optionUI)
+  })
+  
+  output$indVis<-renderPlot({
     if(is.null(visData$individualVis))
       return(NULL)
     
@@ -94,10 +129,20 @@ shinyServer(function(input, output,session) {
     
   })
   
-  observeEvent(input$visDataSet,{
-    visData$individualVis<-plot_decider(input$visDataSet,inputDataValues)
+  observeEvent(input$excelsior,{
+    visData$individualVis<-p("I AM A THING")
+    browser()
+    if(!is.null(input$tabVisChoices)){
+      visData$individualVis<-plot_decider(input$visDataSet,
+                                          inputDataValues$allObj,
+                                          inputDataValues$allObjMeta,
+                                          input$tabVisChoices)
+    }else{
+      visData$individualVis<-plot_decider(input$visDataSet,inputDataValues)
+    }
   })
   
+
   #source("server_visualizeData.R",local=TRUE)
   
   #---------------------------------------

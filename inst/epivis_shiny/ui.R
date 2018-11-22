@@ -62,8 +62,9 @@ body<-dashboardBody(
                       tabPanel("Individual",
                                p("Individual data visualizations here"),
                                uiOutput("dataOptions"),
+                               uiOutput("tableOptions"),
                                br(),
-                               uiOutput("indVis"))
+                               plotOutput("indVis"))
                       )
           ),
   tabItem("data_analytics",

@@ -22,7 +22,7 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   
 
   #now let's get to business. Scan those columns!
-  itemData<-allObj[[tabIndex]]@data[[1]]
+  itemData<-objData[[tabIndex]]@data[[1]]
   itemName<-as.character(objMeta[tabIndex,"dataID"])
   
   #scan for categories: continuous, categorgical, interval

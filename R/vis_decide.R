@@ -3,6 +3,12 @@
 # Process what to visualize
 #
 #***************************************************************
+
+#-------------------- GENERAL VISUALIZER FUNCTION -------------------
+
+
+
+#-------------------- TABULAR DATA VISUALIZER -------------------
 #a helper function that adds items to a plot list
 add_to_plot_list<-function(plotList,plotName=NA,plotItem=NA){
 

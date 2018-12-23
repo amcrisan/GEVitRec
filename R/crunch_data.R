@@ -4,7 +4,19 @@
 scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   #no table index has been provided, so get one yourself
   if(is.na(tabIndex)){
+    #get the index for table files
     tabIndex<-which(objMeta$dataType == "table")
+    
+    # #spatial files can also contain metadata tables, get that too
+    # spatialIndex<-which(objMeta$dataType == "spatial")
+    # 
+    # if(length(spatialIndex)>0){
+    #   for(spIndx in spatialIndex){
+    #     if(!is.null(objData[[spIndx]]@data[['metadata']]))
+    #       tabIndex<-c(tabIndex,spIndx)
+    #   }
+    #   
+    # }
   }
   
   #if there is no table
@@ -22,6 +34,12 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   
 
   #now let's get to business. Scan those columns!
+  #if(objMeta[tabIndex,'dataType'] == "spatial"){
+  #  itemData<-objData[[tabIndex]]@data[['metadata']] # get the metadata if there is any
+  #}else{
+  #  itemData<-objData[[tabIndex]]@data[[1]]
+  #}
+  
   itemData<-objData[[tabIndex]]@data[[1]]
   itemName<-as.character(objMeta[tabIndex,"dataID"])
   
@@ -70,17 +88,17 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   return(tableInfo)
 }
 
-#HELPER FUNCTION: STANDARDIZING DATA INPTU
+#HELPER FUNCTION: STANDARDIZING DATA INPUT
 returnItemData<-function(index,obj,meta){
-  itemData<-obj[[index]]@data[[1]]
+  itemData<-obj[[index]]@data
   itemName<-as.character(meta[index,"dataID"])
   itemType<-as.character(meta[index,"dataType"])
   
   #extract the data or metadata into a table / character vector
   dataOut<-switch(itemType,
-                  "phyloTree" = as.character(itemData$tip.label),
-                  "spatial" = itemData,
-                  "table" = itemData)
+                  "phyloTree" = as.character(itemData[[1]]$tip.label),
+                  "spatial" = itemData[[2]],
+                  "table" = itemData[[1]])
   
   return(list(itemData = itemData,itemName=itemName,itemType = itemType,data=dataOut))
 }
@@ -97,7 +115,7 @@ jaccard_dist<-function(x,y){
 
 
 #FUNCTION : FIND LINKS BETWEEN DIFFERENT DATA TYPES
-findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
+findLink<-function(allObj=NA,allObjMeta = NA,cutoff=0.95){
   #list all pairwise combinations
   combos<-combn(1:length(allObj),m=2)
   

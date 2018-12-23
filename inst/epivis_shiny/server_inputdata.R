@@ -63,12 +63,13 @@ dataInputRemoveObserve<-observe({
 #TO DO: Add size checking for files that are too large
 observeEvent(input$loadData,{
 
+  #browser()
   #get the data sources from the list of reactive elements
   reactOpts<-reactiveValuesToList(input)
 
   #cleaning up the data to sort out what's actually been loaded into the system
   dataPath<-reactOpts[grepl("dataSource",names(reactOpts))]
-  dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
+dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   
   dataPath$internalID<-paste0("#",gsub("_Files","",dataPath[,1]))
   
@@ -96,6 +97,7 @@ observeEvent(input$loadData,{
   
   # 1. READ THE INFORMATION OUT OF THE TABLES (IF ANY)
   #load necessary data dictionary
+  #browser()
   tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
   
   # 2. FIND LINKS BETWEEN DIFFERENT DATA OBJECTS

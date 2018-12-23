@@ -229,18 +229,29 @@ input_spatial<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
     stop("Currently, the input file only loads shapefiles. Is your map an image file? Please choose set dataType to 'image' in order to load it properly")
   }
   
+  #check in the directory to make sure supporting files are there
+  #check dbf or csv file for metadata
   nc <- sf::st_read(file, quiet = TRUE)
   
-  #convert everythign to same layer in event for multiple maps
-  #doesn't alway work well
-  nc<- sf::st_transform(nc, "+init=epsg:3857")
-  
+  #create an object
   if(asObj){
+    sfc_meta<-NA
+    sfc_info<-nc
+    
+    #if there is any metadata, split it out into a data frame
+    if(ncol(nc)>1){
+      sfc_idx<-sapply(sapply(nc,class),function(x){"sfc" %in% x})
+      sfc_info<-nc[,which(sfc_idx)]
+      nc<-as.data.frame(nc)
+      sfc_meta<-nc[,which(!sfc_idx)]
+    }
+    
     objDat<-new("gevitDataObj",
                 id  = paste("spatial",dataID,sep="_"),
                 type = "spatial",
                 source = file,
-                data = list(geometry=nc))
+                data = list(geometry=sfc_info,
+                metadata = sfc_meta))
     return(objDat)
   }else{
     return(nc)

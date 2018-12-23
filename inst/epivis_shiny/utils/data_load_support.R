@@ -32,9 +32,10 @@ addUI<- function(datType=NULL,datNum = NULL,datName = ""){
                 ####### INPUT IS SPATIAL DATA
                 tagList(h4(tagList(img(src="img/spatial.png",height="25px"), datType)),
                         shiny::fileInput(paste0("dataSource",datNum,"_Files"),
-                                 width = '100%', 
-                                 label = "Choose spatial file to upload (.sp format accepted)",
-                                 accept = c(".sp"))
+                                 width = '100%',
+                                 multiple = TRUE,
+                                 label = "Choose spatial file to upload (.shp format accepted)",
+                                 accept = c(".shp,.prj,.shx,.dbf"))
                 )
               }else if(datType %in% c("Interior Map Image", "Image","Gel Image")){
                 ####### INPUT IS IMAGE DATA
@@ -74,6 +75,34 @@ getName<-function(datType = NULL,datName = ""){
 #add all of the epivis dataSec files into a nice gevitr data object
 
 makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
+  #rename the many data files for the spatial files so that they all have the same name
+  tmp<-dataSrc %>%
+    dplyr::filter(dataType == "Shape File")
+    if(nrow(tmp)>0) {
+      tmp %>%
+      dplyr::group_by(internalID) %>%
+      mutate(newName = apply(.,1,function(x){
+        basePath<-dirname((x[['datapath']]))
+        ext<-unlist(strsplit(basename((x[['datapath']])),"\\."))[2]
+        newName<-paste(basePath,paste(gsub("#","",x[['internalID']][1]),ext,sep="."),sep="/")
+        })) %>%
+      apply(.,1,function(x){file.rename(x[['datapath']],x[['newName']])})
+      
+      #fix up the data source object to only load the necessary shape file
+      tmpAll<-dplyr::filter(dataSrc,dataType !="Shape File")
+      tmpShp<-dplyr::filter(dataSrc,dataType =="Shape File") %>%
+        dplyr::mutate(extType = apply(.,1,function(x){unlist(strsplit(x[['datapath']],"\\."))[2]})) %>%
+        dplyr::filter(extType == "shp") %>%
+        dplyr::mutate(datapath  = apply(.,1,function(x){
+          basePath<-dirname((x[['datapath']]))
+          ext<-unlist(strsplit(basename((x[['datapath']])),"\\."))[2]
+          newName<-paste(basePath,paste(gsub("#","",x[['internalID']][1]),ext,sep="."),sep="/")})) %>%
+        select(-contains("extType"))
+      
+      dataSrc<-rbind(tmpAll,tmpShp)
+      
+    }
+  
   tmp<-apply(dataSrc,1,function(dat,live){
     datType<-as.character(dat[["dataType"]])
     if(live){
@@ -91,7 +120,8 @@ makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
     #convert data type from friendly external to more efficient internal
     datType<-switch(datType,
                     "Phylogenetic Tree" = "tree",
-                    "Line List" = "table")
+                    "Line List" = "table",
+                    "Shape File" = "spatial")
     
     #produces a gevitR data object!!!
     input_data(file=datSource,dataType=datType)

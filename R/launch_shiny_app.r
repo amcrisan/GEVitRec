@@ -4,7 +4,7 @@
 #'
 #' @import shiny
 #' @export
-run_epivis <- function() {
+run_epidrive <- function() {
   #note to self, ideally would like to launch in browser
   shiny::runApp("inst/epivis_shiny/", display.mode = "normal")
 }

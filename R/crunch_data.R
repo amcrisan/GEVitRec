@@ -6,17 +6,6 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   if(is.na(tabIndex)){
     #get the index for table files
     tabIndex<-which(objMeta$dataType == "table")
-    
-    # #spatial files can also contain metadata tables, get that too
-    # spatialIndex<-which(objMeta$dataType == "spatial")
-    # 
-    # if(length(spatialIndex)>0){
-    #   for(spIndx in spatialIndex){
-    #     if(!is.null(objData[[spIndx]]@data[['metadata']]))
-    #       tabIndex<-c(tabIndex,spIndx)
-    #   }
-    #   
-    # }
   }
   
   #if there is no table
@@ -34,12 +23,6 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   
 
   #now let's get to business. Scan those columns!
-  #if(objMeta[tabIndex,'dataType'] == "spatial"){
-  #  itemData<-objData[[tabIndex]]@data[['metadata']] # get the metadata if there is any
-  #}else{
-  #  itemData<-objData[[tabIndex]]@data[[1]]
-  #}
-  
   itemData<-objData[[tabIndex]]@data[[1]]
   itemName<-as.character(objMeta[tabIndex,"dataID"])
   
@@ -97,6 +80,7 @@ returnItemData<-function(index,obj,meta){
   #extract the data or metadata into a table / character vector
   dataOut<-switch(itemType,
                   "phyloTree" = as.character(itemData[[1]]$tip.label),
+                  "dna" = as.character(names(itemData[[1]])),
                   "spatial" = itemData[[2]],
                   "table" = itemData[[1]])
   
@@ -119,16 +103,27 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=0.95){
   #list all pairwise combinations
   combos<-combn(1:length(allObj),m=2)
   
-  #scann all pairwise data combinations 
+  #scan all pairwise data combinations to find links between data items
   varComp<-c()
   for(i in 1:ncol(combos)){
     combo<-combos[,i]
+    
+    #get standard information out
     item_one<-returnItemData(combo[1],allObj,allObjMeta)
     item_two<-returnItemData(combo[2],allObj,allObjMeta)
-    
-    #compare vector to data.frame
-    if("phyloTree" %in% c(item_one$itemType,item_two$itemType)){
-      if(item_one$itemType == "phyloTree"){
+  
+    if(is.null(ncol(item_one$data)) & is.null(ncol(item_two$data))){
+      #comparing two vectors
+      compRes<-jaccard_dist(unique(item_one$data),ncol(item_two$data))
+      compRes<-data.frame(item_one= item_one$itemName,
+                          item_two= item_two$itemName,
+                          jaccard_dist= unname(compRes),
+                          stringsAsFactors = FALSE)
+      varComp<-rbind(varComp,compRes)
+    }else if(is.null(ncol(item_one$data)) | is.null(ncol(item_two$data))){
+      #comparing a vector against a data frame
+      #figure out which one is the vectory
+      if(is.null(ncol(item_one$data))){
         nonTab<-item_one
         tab<-item_two
       }else{
@@ -138,8 +133,12 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=0.95){
       
       compRes<-apply(tab$data,2,function(tabCol,nonTabItem){
         #see how similar two vectors are
-        #even numbers are treated as strings, for exact values (not distributions)
-        jaccard_dist(unique(tabCol),unique(nonTabItem))
+        #don't match on numerical data, only on strings
+        if((class(tabCol)  ==  class(nonTabItem)) & class(tabCol) %in% c("character","factor")){
+          jaccard_dist(unique(tabCol),unique(nonTabItem))
+        }else{
+          return(1)
+        }
       },nonTabItem = nonTab$data)
       
       compRes<-data.frame(item_one= rep(nonTab$itemName,length(compRes)),
@@ -148,11 +147,17 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=0.95){
                           stringsAsFactors = FALSE)
       varComp<-rbind(varComp,compRes)
     }else{
+      #comparing two data frames
       #compare data.frame to data.frame
       compRes<-lapply(colnames(item_one$data),function(colName,item_one,item_two,item_one_name,item_two_name){
         tabCol<-item_one$data[,colName]
         compRes<-apply(item_two$data,2,function(tabCol_two,tabCol){
-          jaccard_dist(unique(tabCol_two),unique(tabCol))
+          #only match on characters and factors, not on numerical data
+          if((class(tabCol_two)  ==  class(tabCol)) & class(tabCol_two) %in% c("character","factor")){
+            jaccard_dist(unique(tabCol_two),unique(tabCol))
+          }else{
+            return(1)
+          }
         },tabCol = tabCol)
         data.frame(item_one= rep(paste(item_one_name,colName,sep="-"),length(compRes)),
                    item_two= paste(item_two_name,names(compRes),sep="-"),

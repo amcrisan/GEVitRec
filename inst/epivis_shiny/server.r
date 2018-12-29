@@ -1,7 +1,12 @@
 devtools::load_all()
-library(shiny)
+library(ape)
 library(dplyr)
+library(ggplot2)
+library(shiny)
+library(shinyFiles)
 library(stringr)
+
+
 
 #library(epivis) #this will load all the analytic functions in the R subfolder
 

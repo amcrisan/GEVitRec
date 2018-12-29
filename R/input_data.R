@@ -24,11 +24,13 @@ input_data<-function(file  = NA, dataType = NA, asObj=TRUE,desc = NA,...){
          "tree" = input_phyloTree(file,asObj,dataID,desc,...),
          "dna" = input_dna(file,asObj,dataID,desc,...),
          "spatial" = input_spatial(file,asObj,dataID,desc,proj4String,...),
-         "image" = input_image(file,asObj,dataID,desc,...))
+         "image" = input_image(file,asObj,dataID,desc,...),
+         "rdata" = input_rdata(file, asObj, dataID,decs,...))
 }
 
-
-#Helper function: inputs tables
+#***************************************************************
+# INPUT TABLE DATA
+#***************************************************************
 input_table<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,stringsAsFactors = FALSE,...){
   #autodetect file type
   if(stringr::str_detect(file,"xls$|xlsx$")){
@@ -52,10 +54,11 @@ input_table<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,stringsAsFactors = FA
     return(dat)
   }
 }
-
-#Helper function : input dna
+#***************************************************************
+# INPUT DNA DATA
+#***************************************************************
 input_dna<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,fileType=NA,...){
-  #check to see what kinds of files the user has
+  #right now, user must specify a file, and not a directory
   if(dir.exists(file)){
     #actions for a directory
     fileList<-list.files(file,full.names=TRUE)
@@ -101,7 +104,6 @@ input_dna<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,fileType=NA,...){
       fileType<-dna_detectFileType(file)
     }
     
-    
     if(!(fileType %in% c("vcf","fasta")))
       stop("Only VCF and FASTA files are supported at this time")
     
@@ -112,10 +114,10 @@ input_dna<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,fileType=NA,...){
     
     
     if(asObj){
-      output<-ifelse(fileType == "fasta",
-                     toDNABIN(output,"fasta"),
-                     toDNABIN(output,"vcf")
-             )
+      #output<-ifelse(fileType == "fasta",
+      #               toDNABIN(output,"fasta"),
+      #               toDNABIN(output,"vcf")
+      #       )
 
       objDat<-new("gevitDataObj",
                   id  = paste("dna",dataID,sep="_"),
@@ -133,96 +135,89 @@ dna_detectFileType<-function(file){
   #autodetect file type
   if(stringr::str_detect(file,".vcf$|.vcf.gz$")){
     return("vcf")
-  }else if(stringr::str_detect(file,".fasta$")){
+  }else if(stringr::str_detect(file,".fasta$|.fasta.gz$|.fa|.fa.gz$")){
     return("fasta")
   }else{
     return(NA)
   }
 }
 
-#helper function to create a DNA bin object
-toDNABIN<-function(dat = NULL,datType=NA){
-  #Likely a matrix
-  if(datType=="vcf"){
-    #generate alignment
-    refSeq<-dplyr::distinct(dat,CHROM,POS,REF)
-    grp<-unique(dat$SAMPID)
-    mat<-matrix(".",length(grp),nrow(refSeq))
-  
-    for(i in 1:length(grp)){
-      seq<-refSeq$REF
-      tmp<-dplyr::filter(dat,SAMPID == grp[i])
-      idx<-match(tmp$POS,refSeq$POS)
-      
-      seq[idx]<-tmp$ALT
-      mat[i,]<-seq
-    }
-    rownames(mat)<-grp
-    colnames(mat)<-paste(refSeq$CHROM,refSeq$POS,sep=":")
-    
-    #return DNA bin object
-    return(ape::as.DNAbin(mat))
-  }else if(datType == "fasta"){
-    #likely fasta string
-    samps<-as.character(dat$seq)
-    names(samps)<-dat$SAMPID
-    return(as.DNAbin.DNAStringSet(samps))
-  }
-  
-}
-
-#Helper function to input dna, which loads VCF data
-#Initially, used VCFR because it's got a lot going on
-#and data table was more general and versitile
-#NOTE: ASSUMES ONE SAMPLE PER VCF
+#***********************************************
+# input_vcf
+# This function is very tailored to epiDRIVE, so it won't work
+# well generically. But what it does is assumes a concatenated vcf
+# file instead of directory. ShinyFiles does allow directory files
+# to be loaded (yay!) however, the problem automatically
+# add the UI and the server observer function, which is just
+# tricky to get right. Using the general shiny fileINPUT
+# it becomes necessary to do this step
+#
 input_vcf<-function(file=NA,asObj=TRUE,filter=NA,...){
-  #Read with data.table, rather than vcfR
-  #vcfFile<-vcfR::read.vcfR(vcfFile)
+  #Currently will not work with header, assume multiple files stuck together
+  #Only really works where all the files at concatenated together
   if(stringr::str_detect(file,".vcf.gz$")){
-    tmp<-data.table::fread(paste0('zcat < ',file),skip="#")
+    tmp<-data.table::fread(paste0('zcat < ',file))
   }else{
-    tmp<-data.table::fread(file,skip="#")
+    tmp<-data.table::fread(file)
   }
-  colnames(tmp)<-gsub("#","",colnames(tmp))
-  tmp$SAMPID<-rep(basename(file),nrow(tmp))
+  #for now, just take the first five columns
+  tmp<-tmp[,1:5]
+  colnames(tmp)<-c("SAMPID","CHROM","POS","REF","ALT")
   
-  #Filter the sequences if needed or if very large file (last part is TO DO)
-  if(!is.na(filter)){
-    classFilter<-class(filter)
-    if(classFilter == "character"){
-      #if character, filter all items that contain the word (i.e. PASS)
-      print("Implement me")
-    }else if(classFilter == "logical"){
-      #if boolean, deploy our own basic one, then filter with word PASS
-      print("Implemented me")
-    }else{
-      warning("Input to filter is not currently supported! Data is not filtered.")
-    }
+  #rename the sampleID
+  splitChar<-ifelse(stringr::str_detect(file,".vcf.gz"),"\\.vcf\\.gz","\\.vcf")
+  tmp<-tmp %>% 
+    group_by(SAMPID) %>%
+    mutate(SAMPMOD=unlist(str_split(SAMPID,splitChar))[[1]]) %>%
+    mutate(CHROMPOS = paste(CHROM,POS,sep=":")) %>%
+    ungroup()
+    
+  #reference sequence for each position
+  refSeq<-dplyr::select(tmp,CHROMPOS,REF) %>% distinct()
+  
+  #convert DNA object
+  seqList<-list()
+  for(sampVal in basename(unique(tmp$SAMPMOD))){
+    subSamp<-dplyr::filter(tmp,SAMPMOD == sampVal)
+    idx<-match(subSamp$CHROMPOS,refSeq$CHROMPOS)
+    subSeq<-refSeq
+    subSeq[idx,"REF"]<-subSamp$ALT
+    seqList[[sampVal]]<-subSeq$REF
   }
   
-  return(tmp[,c("SAMPID","CHROM","POS","REF","ALT"),on=c("ID")])
+  remove(refSeq,tmp)
+  gc()
+  
+  return(as.DNAbin(seqList))
 }
 
+#helper function for VCF that preps a directory for loading
+#quite a few things to add to make it work for fasta and gz files
+#currently only works on linux files
+prepGenomics<-function(fileDIR=NULL,filetype = NULL){
+  #currently only works for VCFS, need to extend to other file types
+  if(dir.exists(fileDIR)){
+    if(file.exists(sprintf("%s/epiDRIVE_allTogether.vcf",fileDIR))){
+      file.remove(sprintf("%s/epiDRIVE_allTogether.vcf",fileDIR))
+    }
+   system(sprintf("awk '{print FILENAME,$0}' %s/*.vcf | grep -v '#' | cat > %s/epiDRIVE_allTogether.vcf",fileDIR,fileDIR))
+  }
+}
+
+#***********************************************
+# Input fasta files that are zipped or otherwise 
+#
 input_fasta<-function(file=NA,...){
   if(stringr::str_detect(file,".fasta.gz$")){
-    tmp<-data.table::fread(paste0('zcat < ',file),skip="#")
+    return(ape::read.FASTA(file = gzfile(file), type="DNA"))
   }else{
-    tmp<-data.table::fread(file,stringsAsFactors = FALSE,header = FALSE)
+    return(ape::read.FASTA(file = file, type="DNA"))
   }
-  #tmp<-ape::read.FASTA(file=file,type="DNA")
-  idxSamp<-which(sapply(tmp,function(x){grepl(">",x)}))
-  samps<-c()
-  for(i in 1:length(idxSamp)){
-    start = idxSamp[i]+1 #start *after* the sample ID
-    end<-ifelse(i == length(idxSamp),nrow(tmp),idxSamp[i+1]-1)
-    samps<-rbind(samps,paste0(sapply(tmp[start:end,"V1"],as.character),collapse = ""))
-  }
-  #rownames(samps)<-gsub(">","",tmp[idxSamp,"V1"])
-  #tst<-as.DNAbin.DNAStringSet(samps)
-  return(data.frame(seq=samps,SAMPID=gsub(">","",tmp[idxSamp,"V1"])))
 }
 
-#Helpfer function : input spatial data
+#***************************************************************
+# INPUT SHAPE FILE DATA
+#***************************************************************
 input_spatial<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   
   if(!stringr::str_detect(file,"shp$")){
@@ -258,16 +253,9 @@ input_spatial<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   }
 }
 
-#Helpfer function: input tree
-#' A helper function that reads in tree file data. Expecting either Newick or Nexus format
-#'
-#' @param file
-#' @param desc
-#' @param ...
-#'
-#' @return a phylo tree object
-#'
-#' @examples
+#***************************************************************
+# INPUT PHYLOGENETIC TREE DATA
+#***************************************************************
 input_phyloTree<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,sepLabel = NA,metadataFile=NULL,...){
   #Make sure that tree has the right format to load
   if(!stringr::str_detect(file,"tree$|nwk$|tre$|newick$|nexus$")){
@@ -339,15 +327,9 @@ input_phyloTree<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,sepLabel = NA,met
   }
 }
 
-#Helpder function : input_image
-#' Input Image
-#' A helper function for input_data
-#' @param file
-#' @param desc
-#' @param ...
-#'
-#' @return
-#' @examples
+#***************************************************************
+# INPUT IMAGE DATA
+#***************************************************************
 input_image<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   img<-magick::image_read(path=file)
   
@@ -417,3 +399,57 @@ annotate_image<-function(img = NULL,imgDetails=NULL,outfile = NULL){
   }
   
 }
+
+#***************************************************************
+# INPUT R DATA
+# Essentially, input any data that is outputted by R. 
+# There are specific object files that are loaded
+#***************************************************************
+input_rdata<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
+  #Load data from R
+  if(stringr::str_detect(file,"rdata$ | rda")){
+    dat<-try(load(file))
+  }else if(stringr::str_detect(file,"rds$")){
+    dat<-try(readRDS(file))
+  }else{
+    stop("Right now, epiDRIVE can only read data that has been saved by the save() function (file extension rdata, or rda) or by the saveRDS() function (file extension, rds)")
+  }
+  
+  objName<-dat
+  
+  #check how many entitities are being loaded and create gevitR objects for use
+  #use get and assign to read and set new objec
+  for(i in 1:length(dat)){
+    tmp<-get(dat[[i]])
+    tmpClass<-class(tmp)
+    
+    #give it a unique dataID
+    #support specific types - not everything, otherwise that's a nightmare
+    tmpClass<-switch(tmpClass,
+           "phylo" = "tree",
+           "data.frame" = "table",
+           "igraph" = "nodeLink",
+           "hclust" = "tree",
+           NULL)
+    
+    if(is.null(tmpClass)){
+      warning(sprintf("'%s' not loaded - the '%s' data type is currently not supported by epiDRIVE",class(tmp),objName[i]))
+    }
+      
+    
+    #converting objects into the gevitObject so that it can be used
+    #with the rest of the analysis
+    
+    tmp<-new("gevitDataObj",
+                id  = paste(tmpClass,dataID,sep="_"),
+                type = tmpClass,
+                source = file,
+                data = list(data = tmp)
+    )
+    
+    #reassign the environment variable to the gevit object
+    #does not return anything
+    assign(objName[i],tmp)
+  }
+}
+

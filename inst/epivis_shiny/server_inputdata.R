@@ -66,6 +66,7 @@ observeEvent(input$loadData,{
   #browser()
   #get the data sources from the list of reactive elements
   reactOpts<-reactiveValuesToList(input)
+  
 
   #cleaning up the data to sort out what's actually been loaded into the system
   dataPath<-reactOpts[grepl("dataSource",names(reactOpts))]

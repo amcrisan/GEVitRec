@@ -121,7 +121,9 @@ makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
     datType<-switch(datType,
                     "Phylogenetic Tree" = "tree",
                     "Line List" = "table",
-                    "Shape File" = "spatial")
+                    "Shape File" = "spatial",
+                    "VCF" = "dna",
+                    "FASTA" = "dna")
     
     #produces a gevitR data object!!!
     input_data(file=datSource,dataType=datType)

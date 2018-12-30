@@ -29,8 +29,6 @@ body<-dashboardBody(
                               multiple=FALSE,
                               choices = c("Phylogenetic Tree",
                                           "Line List",
-                                          "Interior Map Image",
-                                          "Gel Image",
                                           "Image",
                                           "Shape File",
                                           "FASTA",

@@ -6,8 +6,6 @@ library(shiny)
 library(shinyFiles)
 library(stringr)
 
-
-
 #library(epivis) #this will load all the analytic functions in the R subfolder
 
 source("utils/data_load_support.R") #additional functions that support input of data to shiny app
@@ -52,7 +50,7 @@ shinyServer(function(input, output,session) {
     return(inputDataValues$allObjMeta)
   })
   
-  #Data Visualization links
+  #Data Visualization summary and linkages
   output$dataLinkageTable<-renderTable({
     if(is.null(inputDataValues$varComp))
       return(NULL)
@@ -136,7 +134,6 @@ shinyServer(function(input, output,session) {
   
   observeEvent(input$excelsior,{
     visData$individualVis<-p("I AM A THING")
-    browser()
     if(!is.null(input$tabVisChoices)){
       visData$individualVis<-plot_decider(input$visDataSet,
                                           inputDataValues$allObj,

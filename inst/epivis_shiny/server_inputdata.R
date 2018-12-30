@@ -89,7 +89,7 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   # DATA STRUCTURE TO RULE THEM ALL
   # Puts all the data into three data structures for further processing
   #---------------------------------------------------------------------
-  
+  #this is when the data finally gets loaded into the system
   allObj<-makeGEVITRobj(dataSrc = inputDataValues$dataSrc,liveStatus = liveStatus)
   
   allObjMeta<-data.frame(dataID = sapply(allObj,function(x){x@id}),
@@ -98,22 +98,26 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   
   # 1. READ THE INFORMATION OUT OF THE TABLES (IF ANY)
   #load necessary data dictionary
-  #browser()
-  tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
+  if(length(allObjMeta$dataType == "table")>0)
+    tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
   
   # 2. FIND LINKS BETWEEN DIFFERENT DATA OBJECTS
   varComp<-findLink(allObj=allObj,allObjMeta=allObjMeta)
   
   #3. LAST STEP : ADD TABLE DATA TO OBJECT META
-  dataType = apply(tabScanned[,c("class","specialClass")],1,function(x){
+  dataType <- apply(tabScanned[,c("class","specialClass")],1,function(x){
     ifelse(is.na(x[2]),x[1],paste(x[1],x[2],sep=";"))
     })
   
-  tabScanned<-data.frame(dataID=tabScanned$variable,
-                         dataType= dataType,
-                         dataSource = tabScanned$tableSource)
-  
-  allObjMeta<-rbind(allObjMeta,tabScanned)
+  if(length(allObjMeta$dataType == "table")>0){
+    #if there are tables, add scanned tabluar data to table
+    #treat each column as an individual vector varaible
+    tabScanned<-data.frame(dataID=tabScanned$variable,
+                           dataType= dataType,
+                           dataSource = tabScanned$tableSource)
+    
+    allObjMeta<-rbind(allObjMeta,tabScanned)
+  }
   
   #Assignment to reactive variables and removal of extra stuff
   inputDataValues$allObj<-allObj
@@ -126,6 +130,7 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   #### NOW UPDATE TO THE VISUALIZATION TAB
   
   updateTabItems(session,"sideBarMenuOptions","data_vis")
+  browser()
   
 })
 

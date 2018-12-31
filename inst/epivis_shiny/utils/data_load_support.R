@@ -88,7 +88,7 @@ makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
         ext<-unlist(strsplit(basename((x[['datapath']])),"\\."))[2]
         newName<-paste(basePath,paste(gsub("#","",x[['internalID']][1]),ext,sep="."),sep="/")
         })) %>%
-      apply(.,1,function(x){file.rename(x[['datapath']],x[['newName']])}) %>% View()
+      apply(.,1,function(x){file.rename(x[['datapath']],x[['newName']])})
       
       #fix up the data source object to only load the necessary shape file
       tmpAll<-dplyr::filter(dataSrc,dataType !="Shape File")

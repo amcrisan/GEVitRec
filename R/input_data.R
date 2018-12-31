@@ -6,8 +6,18 @@ randID <- function(n = 1) {
 }
 
 
-#Generic input function for inputing data, helper functions are in the back
-#' @export
+#' Input Data
+#'
+#' Generic input function for inputing data, helper functions are in the back
+#' 
+#' @param file 
+#' @param dataType 
+#' @param asObj 
+#' @param desc 
+#' @param ... 
+#'
+#' @import dplyr
+#' @return
 input_data<-function(file  = NA, dataType = NA, asObj=TRUE,desc = NA,...){
   #Only supports specific data types
   #TODO: data for sequence alignment

@@ -157,7 +157,7 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   allVis<-c()
   for(dt in unique(allObjMeta$dataCategory)){
     
-    if(!(dt %in% c("spatial","phyloTree")))
+    if(!(dt %in% c("spatial","phyloTree","temporal")))
       next()
     
     df<-filter(allObjMeta,dataCategory== dt)

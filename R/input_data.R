@@ -43,6 +43,9 @@ input_table<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,stringsAsFactors = FA
     stop("GEViT currently only supports xls,xlsx,csv,and tsv table input formats.")
   }
   
+  #little bit of column name normalization
+  colnames(dat)<-tolower(colnames(dat))
+  
   if(asObj){
     objDat<-new("gevitDataObj",
                 id  = paste("table",dataID,sep="_"),
@@ -114,11 +117,6 @@ input_dna<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,fileType=NA,...){
     
     
     if(asObj){
-      #output<-ifelse(fileType == "fasta",
-      #               toDNABIN(output,"fasta"),
-      #               toDNABIN(output,"vcf")
-      #       )
-
       objDat<-new("gevitDataObj",
                   id  = paste("dna",dataID,sep="_"),
                   type = "dna",

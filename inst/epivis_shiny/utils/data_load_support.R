@@ -75,18 +75,20 @@ getName<-function(datType = NULL,datName = ""){
 #add all of the epivis dataSec files into a nice gevitr data object
 
 makeGEVITRobj<-function(dataSrc=NA,liveStatus=NA){
+  
+  #before making gevitR object
   #rename the many data files for the spatial files so that they all have the same name
   tmp<-dataSrc %>%
     dplyr::filter(dataType == "Shape File")
     if(nrow(tmp)>0) {
       tmp %>%
-      dplyr::group_by(internalID) %>%
+      #dplyr::group_by(internalID) %>%
       mutate(newName = apply(.,1,function(x){
         basePath<-dirname((x[['datapath']]))
         ext<-unlist(strsplit(basename((x[['datapath']])),"\\."))[2]
         newName<-paste(basePath,paste(gsub("#","",x[['internalID']][1]),ext,sep="."),sep="/")
         })) %>%
-      apply(.,1,function(x){file.rename(x[['datapath']],x[['newName']])})
+      apply(.,1,function(x){file.rename(x[['datapath']],x[['newName']])}) %>% View()
       
       #fix up the data source object to only load the necessary shape file
       tmpAll<-dplyr::filter(dataSrc,dataType !="Shape File")

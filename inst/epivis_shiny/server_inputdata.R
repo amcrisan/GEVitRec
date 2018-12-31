@@ -78,8 +78,6 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   inputDataValues$dataSrc<-as.data.frame(inputDataValues$dataSrc)
   colnames(inputDataValues$dataSrc)<-c("internalID","dataType")
   
-  #the idea here is to load the data at the last possible minute, 
-  #and avoid loading data source that are not needed
   inputDataValues$dataSrc<-dplyr::left_join(inputDataValues$dataSrc,dataPath,by="internalID")
   
   #stop listening for the data removal button
@@ -96,22 +94,25 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
                          dataType= sapply(allObj,function(x){x@type}),
                          dataSource = sapply(allObj,function(x){x@source}))
   
+  #-------- LOAD IN AND READ DATA ------------------
   # 1. READ THE INFORMATION OUT OF THE TABLES (IF ANY)
   #load necessary data dictionary
-  if(length(allObjMeta$dataType == "table")>0)
+  if(any(allObjMeta$dataType == "table"))
     tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
   
   # 2. FIND LINKS BETWEEN DIFFERENT DATA OBJECTS
   varComp<-findLink(allObj=allObj,allObjMeta=allObjMeta)
   
-  #3. LAST STEP : ADD TABLE DATA TO OBJECT META
-  dataType <- apply(tabScanned[,c("class","specialClass")],1,function(x){
-    ifelse(is.na(x[2]),x[1],paste(x[1],x[2],sep=";"))
-    })
-  
-  if(length(allObjMeta$dataType == "table")>0){
+  #3. ADD TABLE DATA TO OBJECT META
+  #browser()
+  if(any(allObjMeta$dataType == "table")){
     #if there are tables, add scanned tabluar data to table
     #treat each column as an individual vector varaible
+    
+    dataType <- apply(tabScanned[,c("class","specialClass")],1,function(x){
+      ifelse(is.na(x[2]),x[1],paste(x[1],x[2],sep=";"))
+    })
+    
     tabScanned<-data.frame(dataID=tabScanned$variable,
                            dataType= dataType,
                            dataSource = tabScanned$tableSource)
@@ -119,18 +120,80 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
     allObjMeta<-rbind(allObjMeta,tabScanned)
   }
   
+  #4. CLEAN AND FINESSE
+
+  #give each list item the name of its objects to make it easier to retrieve
+  names(allObj)<-sapply(allObj,function(x){x@id})
+  
+  #separate between data types and variables types
+  allObjMeta <- mutate(allObjMeta,
+                       dataEntity = ifelse(dataType %in% c("spatial","phyloTree","dna","table"), 
+                                            "dataType",
+                                            ifelse(stringr::str_detect(dataType,";"),"specialVariableType","variableType")))
+  
+  allObjMeta<-allObjMeta %>%
+    filter(dataEntity %in% c("dataType","specialVariableType")) %>%
+    mutate(dataCategory = sapply(dataType,function(x){
+      strVal<-stringr::str_split(x,";")[[1]]
+      if(length(strVal) == 1){
+        return(as.character(x))
+      }else{
+        if(strVal[2] %in% c("latitude","longitude")){
+          return("spatial")
+        }else{
+          return(strVal[2])
+        }
+      }}))
+  
+  
   #Assignment to reactive variables and removal of extra stuff
   inputDataValues$allObj<-allObj
   inputDataValues$allObjMeta<-allObjMeta
   inputDataValues$varComp<-varComp
   
-  #remove(c("allObj","allObjMeta","varComp"))
-  #gc()
   
+  #-------- PREP DATA VIS OBJECT ------------------
+
+  allVis<-c()
+  for(dt in unique(allObjMeta$dataCategory)){
+    
+    if(!(dt %in% c("spatial","phyloTree")))
+      next()
+    
+    df<-filter(allObjMeta,dataCategory== dt)
+    
+    #source of relevant variable tabular data
+    varSrc<-filter(df,stringr::str_detect(dataType,";")) %>% 
+      select(dataSource) %>% 
+      unique()
+    
+    #ids of data types
+    datSrc<-filter(df,!stringr::str_detect(dataType,";")) %>% 
+      select(dataID) %>% 
+      unique()
+    
+    datSrc<-c(as.character(varSrc[,1]),as.character(datSrc[,1]))
+    
+    #remove any NA's
+    datSrc<-datSrc[!is.na(datSrc)]
+    
+    tmp<-chooseVisualization(df, allObj[datSrc])
+    
+    if(length(tmp) == 1){
+      allVis[[dt]]<-tmp[[1]]
+    }else{
+      #for things like phylogenetic trees, common statistical charts, ect. that
+      #are one function call but that must be separate views
+      for(i in 1:length(tmp)){
+        allVis[[as.character(tmp[[i]]$source$dataID)]] <-tmp[[i]]
+      }
+    }
+  }
+  
+  datavis$visIndividual<-allVis
+
   #### NOW UPDATE TO THE VISUALIZATION TAB
-  
   updateTabItems(session,"sideBarMenuOptions","data_vis")
-  browser()
   
 })
 

@@ -17,7 +17,9 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   #if there are multiple tables
   if(length(tabIndex)>1){
     #call yo-self!
-    tmp<-sapply(tabIndex,function(x){scanTab(x,objData,objMeta,dataDict)})
+    scanTab(3,objData,objMeta,dataDict)
+    tmp<-lapply(tabIndex,function(x){scanTab(x,objData,objMeta,dataDict)})
+    tmp<-dplyr::bind_rows(tmp)
     return(tmp)
   }
   
@@ -31,7 +33,8 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   #then, wait for user input to decide whether to show one variable, or multiple variables
   tableInfo<-data.frame(tableSource = rep(itemName,ncol(itemData)),
                         variable = colnames(itemData),
-                        class = sapply(itemData, typeof))
+                        class = sapply(itemData, typeof),
+                        stringsAsFactors = FALSE)
   
   #scan for special column types (spatial, genomic, dates)
   #universal data dictionary a standard, users can add other data dictionaries

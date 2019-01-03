@@ -103,6 +103,9 @@ jaccard_dist<-function(x,y){
 
 #FUNCTION : FIND LINKS BETWEEN DIFFERENT DATA TYPES
 findLink<-function(allObj=NA,allObjMeta = NA,cutoff=0.95){
+  if(length(allObj) < 2)
+    return(NULL)
+  
   #list all pairwise combinations
   combos<-combn(1:length(allObj),m=2)
   

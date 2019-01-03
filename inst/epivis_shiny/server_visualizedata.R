@@ -57,7 +57,6 @@ output$indiVis<-renderUI({
   }
   
   uiOut
-  
 })
 
 
@@ -66,7 +65,7 @@ observeEvent(input$redraw,{
   visItem<-datavis$visIndividual[[input$visDataSet]]
   
   #List of elements to enhance visual appearance
-  enhanceList<-list(areaFill = ifelse(is.null(input$areaFill),NULL,input$areaFill),
+  enhanceList<-list(areaFill = getOptions(input$areaFill),
                     pointFill = NULL,
                     pointColour = NULL,
                     pointTransparency = NULL,
@@ -76,7 +75,7 @@ observeEvent(input$redraw,{
                     lineWidth = NULL,
                     xPos = NULL,#tabular data only
                     yPos = NULL, #tabular data only
-                    visVars = ifelse(is.null(input$visVarsSelected),NULL,list(vars=input$visVarsSelected)) #tabular data only
+                    visVars = getOptions(input$visVarsSelected) #tabular data only
   )
   
   #Remove empty items that are null
@@ -85,31 +84,17 @@ observeEvent(input$redraw,{
   #only redraw if there's something to modify
   if(length(enhanceList)!=0){
     df<-visItem$source
-    datSrc<-as.character(unique(df$dataSource))
+    datSrc<-as.character(unique(df$dataID))
   
-    datCat<-dplyr::filter(inputDataValues$allObjMeta,dataID %in% datSrc) %>%
-      select(dataCategory) %>%
-      unique()
-    
-    datCat<-as.character(datCat$dataCategory)
-    
-    #multiple data sources
-    if(length(datCat)>1){
-      stop("There's a problem here, there are too many categoies")
-    }
-    
-    if(datCat == "table"){
-      if(!is.null(enhanceList[["visVars"]]))
-      datavis$tableVarSelected<-unlist(enhanceList[["visVars"]])
-      
-      if(length(datSrc)>1){
-        print("Something weird here in table land")
-      }
+    datCat<-visItem$datCat
+
+    if(datCat %in% c("temporal","table")){
+      datSrc<-as.character(unique(df$dataSource))
       df<- dplyr::filter(inputDataValues$allObjMeta,dataSource == datSrc)
     }
-    
-    #browser()
+  
     tmp<-chooseVisualization(dat=df, objData = inputDataValues$allObj[datSrc],enhanceList=enhanceList,datCat = datCat)
+    
     datavis$visIndividual[[input$visDataSet]]<-tmp[[1]]
   }
 })
@@ -162,7 +147,6 @@ output$gridTextTemp<-renderText({
   
   visItem<-datavis$visIndividual[[input$visDataSet]]
   
-  #browser()
   if(stringr::str_detect(visItem$plotClass,"chartType"))
     return(visItem$plot)
   
@@ -173,6 +157,8 @@ output$gridTextTemp<-renderText({
 # OPTIONS FOR ENHANCING THE APPEARANCE
 #-----------------------------------------
 #Options functions that allow modifications of base chart type
+
+#UI ELEMENT : Selecting variables to fill an area
 output$areaFillUI<-renderUI({
   if(is.null(input$visDataSet))
     return(NULL)
@@ -181,8 +167,8 @@ output$areaFillUI<-renderUI({
   datSrcs<-as.character(unique(visItem$source$dataSource))
   
   #check to see if it is table
-  #browser()
   tmp<-inputDataValues$allObjMeta
+  
   tmp<-dplyr::filter(tmp,dataID %in% as.character(datSrcs))%>%
     dplyr::filter(dataType == "table")
   
@@ -194,33 +180,61 @@ output$areaFillUI<-renderUI({
   }
   
   tmp<-inputDataValues$allObj[[as.character(tmp$dataID)]]@data[[1]]
+ 
+   #check to see if there are already selected vis variables associated with the vis item
+  selected<-NULL
+  if(!is.null(visItem$enhancements)){
+    selected<-unname(unlist(visItem$enhancements[['visVars']]))
+    optionsList <- NULL
+  }else{
+    optionsList<- list(
+      placeholder = 'Please type to select variables to visualize',
+      onInitialize = I('function() { this.setValue(""); }')
+    )
+  }
   
   
-  selectInput(inputId = "areaFill",
+  selectizeInput(inputId = "areaFill",
               label = "Shape Fill",
               choice = colnames(tmp),
-              selected=NULL,
-              multiple=FALSE)
+              selected=selected,
+              multiple=FALSE,
+              options = optionsList)
 })
 
+
+# UI ELEMENT : Selecting variables to visualize in table data
 output$variableSelector<-renderUI({
   if(is.null(input$visDataSet))
     return(NULL)
-  
-  selected<-NULL
-  if(!is.null(datavis$tableVarSelected))
-    selected<-datavis$tableVarSelected
   
   #no check, just grab the table columns
   visItem<-datavis$visIndividual[[input$visDataSet]]
   id<-as.character(unique(visItem$source$dataSource))
   
+  if(visItem$datCat !="table")
+    return(NULL)
+  
   tmp<-inputDataValues$allObj[[id]]@data[[1]]
   
-  selectInput(inputId = "visVarsSelected",
+  #check to see if there are already selected vis variables associated with the vis item
+  selected<-NULL
+  if(!is.null(visItem$enhancements)){
+    selected<-unname(unlist(visItem$enhancements[['visVars']]))
+    optionsList <- NULL
+  }else{
+    optionsList<- list(
+      placeholder = 'Please type to select variables to visualize',
+      onInitialize = I('function() { this.setValue(""); }')
+    )
+  }
+
+  #UI element
+  selectizeInput(inputId = "visVarsSelected",
               label = "Choose variables to visualize",
               choice = colnames(tmp),
               selected=selected,
-              multiple=TRUE)
+              multiple=TRUE,
+              options = optionsList)
 })
 

@@ -25,7 +25,7 @@ chooseVisualization<-function(dat=NULL,objData = NULL,enhanceList=NULL,datCat = 
 #***********************************************
 # FUNCTION FOR PLOTTING A MAP AND ADDING LAYERS
 #***********************************************
-plotMap<-function(dat = NULL,objData = NULL){
+plotMap<-function(dat = NULL,objData = NULL,enhanceList=NULL){
   #create a base chart
   baseMap<-leaflet() %>% 
     addProviderTiles(providers$CartoDB.Positron) %>%
@@ -64,8 +64,10 @@ plotMap<-function(dat = NULL,objData = NULL){
   
   pList<-c()
   pList[["spatial"]] <- list(source = dat,
+                      datCat = "spatial",
                       plot = baseMap,
-                      plotClass = "js-map")
+                      plotClass = "js-map",
+                      enhancements = enhanceList)
   return(pList)
   
 }
@@ -73,7 +75,7 @@ plotMap<-function(dat = NULL,objData = NULL){
 #***********************************************
 # FUNCTION FOR PLOTTING PHYLOGENETIC TREE
 #***********************************************
-plotPhyloTree<-function(dat = NULL,objData = NULL,ehanceList = NULL){
+plotPhyloTree<-function(dat = NULL,objData = NULL,enhanceList = NULL){
   #Right now, trees are not combineable
   #So if multiple trees are supplied, multiple trees are visualized
   
@@ -92,8 +94,10 @@ plotPhyloTree<-function(dat = NULL,objData = NULL,ehanceList = NULL){
       ggtree::theme_tree()
     
     pList[[id]]<-list(source = dat,
+                      datCat = "phyloTree",
                       plot = treePlot,
-                      plotClass = "grid-phyloTree")
+                      plotClass = "grid-phyloTree",
+                      enhancements = enhanceList)
     return(pList)
   }
 }
@@ -109,7 +113,6 @@ plotGenomeMap<-function(dat = NULL, objData = NULL){
 # FUNCTION FOR PLOTTING A TIMELINE
 #***********************************************
 plotTimeline<-function(dat = NULL,objData = NULL, enhanceList = NULL,timevar = NULL, to=NULL,from=NULL,timeline_type="epicurve"){
-  #print("IMPLEMENT SOON")
   pList<-c()
   if(length(objData)>1){
     # Plot temporal data for one spreadsheet at a time
@@ -130,7 +133,9 @@ plotTimeline<-function(dat = NULL,objData = NULL, enhanceList = NULL,timevar = N
   if(is.null(timevar) & is.null(to) & is.null(from)){
     #user has not provided any time variables, so just randomly pick one
     #and just visualize an epicurve
-    timevar<-as.character(sample(dat$dataID,1))
+    timevar<-dplyr::filter(dat,dataCategory == "temporal") %>%
+      sample_n(1)
+    timevar<-as.character(timevar$dataID)
   }else if(!is.null(to) & !is.null(from) & is.null(timevar)){
     #change chart type to gant
     timeline_type<-"gant"
@@ -151,7 +156,6 @@ plotTimeline<-function(dat = NULL,objData = NULL, enhanceList = NULL,timevar = N
 }
 
 plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
-  #browser()
   tabDat<-objData@data[[1]]
 
   #TO: check if timevar can be converted to a date variable, need input from user
@@ -163,9 +167,9 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
   
   #summarizing case counts by the time variables
   if(!is.null(enhanceList)){
-    if("shapeFill" %in% names(enhanceList)){
+    if("areaFill" %in% names(enhanceList)){
       tab<-tabDat %>% 
-        dplyr::group_by_("epiVisTimeVar",enhanceList[["shapeFill"]]) %>%
+        dplyr::group_by_("epiVisTimeVar",unlist(enhanceList[["areaFill"]])) %>%
         count()
     }else{
       tab<-dplyr::count(tabDat,epiVisTimeVar)
@@ -183,12 +187,14 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
     if(is.null(enhanceList)){
       epicurve<-epicurve + ggplot2::geom_bar(stat = "identity")
     }else{
-      epicurve<-epicurve + ggplot2::geom_bar(stat = "identity",aes_string(fill = enhanceList[["shapeFill"]]))
+      epicurve<-epicurve + ggplot2::geom_bar(stat = "identity",aes_string(fill = unlist(enhanceList[["areaFill"]])))
     }
 
   return(list(source = dat,
+       datCat = "temporal",
        plot = epicurve,
-       plotClass = "grid-barchart"))
+       plotClass = "grid-barchart",
+       enhancements = enhanceList))
 }
 
 #helper function to attempt to try dates
@@ -230,16 +236,12 @@ plotCommonStat<- function(dat = NULL,objData = NULL,enhanceList = NULL){
   
   #without user input, its not possible to establish what to draw
   # #in the future, we'll store some data to get a better first guess
-  # if(is.null(enhanceList)){
-  #   pList[[id]]<-list(source = dat,
-  #                     plot = NULL,
-  #                     plotClass = "grid-chartType")
-  # }
-  
   if(is.null(enhanceList[["visVars"]])){
     pList[[id]]<-list(source = dat,
                 plot = NULL,
-                plotClass = "grid-chartType")
+                datCat = "table",
+                plotClass = "grid-chartType",
+                enhancements = enhanceList)
     
     return(pList)
   }
@@ -284,15 +286,15 @@ plotCommonStat<- function(dat = NULL,objData = NULL,enhanceList = NULL){
   if(numVar == 1){
     #univariate visualizations
     varType<-names(varTypes)[which(varTypes>0)]
-    chartType<-univariatePlot(tabDat,visVars,varType)
+    chartType<-univariatePlot(tabDat,visVars,varType,enhanceList)
   }else if(numVar == 2){
     #bivariate visualizations
     varType<-names(varTypes)[which(varTypes>0)]
-    chartType<-bivariatePlot(tabDat,visVars,varType)
+    chartType<-bivariatePlot(tabDat,visVars,varType,enhanceList)
   }else{
     #multivariate visualizations
     varType<-names(varTypes)[which(varTypes>0)]
-    chartType<-multivarablePlot(tabDat,visVars,varType)
+    chartType<-multivarablePlot(tabDat,visVars,varType,enhanceList)
   }
   
   chartType$source<-dplyr::filter(dat,dataID %in% visVars)
@@ -304,25 +306,31 @@ plotCommonStat<- function(dat = NULL,objData = NULL,enhanceList = NULL){
 }
 
 #Common statistical charts for single variables
-univariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL){
+univariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,enhanceList = NULL){
   chartType<-NULL
   return(list(source = NULL,
+              datCat = "table",
               plot = "univariate plot",
-              plotClass = "grid-chartType"))
+              plotClass = "grid-chartType",
+              enhancements = enhanceList))
 }
 
 #Common statistical charts for two variables
-bivariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,posVar = NULL){
+bivariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,enhanceList = NULL){
   chartType<-NULL
   return(list(source = NULL,
+              datCat = "table",
               plot = "bivariate plot",
-              plotClass = "grid-chartType"))
+              plotClass = "grid-chartType",
+              enhancements = enhanceList))
 }
 
 #Common statistical charts for more than two variables
-multivarablePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,posVar = NULL){
+multivarablePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,enhanceList = NULL){
   chartType<-NULL
   return(list(source = NULL,
+              datCat = "table",
               plot = "multivariable plot",
-              plotClass = "grid-chartType"))
+              plotClass = "grid-chartType",
+              enhancements = enhanceList))
 }

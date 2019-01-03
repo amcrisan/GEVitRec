@@ -16,12 +16,21 @@ liveStatus<-TRUE #testing code for data input functions. eventually should be re
 dataDict<-readxl::read_xlsx(path="data_dictionaries/universal_data_dictionary.xlsx")
 chartSupport<-readxl::read_xlsx(path="utils/supported_charts.xlsx")
 
+getOptions<-function(item=NULL){
+  if(is.null(item))
+    return(NULL)
+  
+  return(list(vars=item))
+}
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output,session) {
   session$onSessionEnded(stopApp) #kill the app when the browser is closed
   
+  #Eventually, swap this modules
   source("server_inputdata.R",local=TRUE)
   source("server_visualizedata.R",local=TRUE)
+  
   #***************************************************************
   #
   # 0. Load in all data, store it in a data structure
@@ -44,8 +53,7 @@ shinyServer(function(input, output,session) {
   #------------------------------------
   datavis<-reactiveValues(
     visIndividual = NULL,
-    selectedVis = NULL,
-    tableVarSelected = NULL
+    selectedVis = NULL
   )
   
   

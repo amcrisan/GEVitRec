@@ -5,10 +5,8 @@
 # Eventually, this will be replaced by the gevitR package
 # and all these functions will do is create the specifications
 #*************************************************************
-chooseVisualization<-function(dat=NULL,objData = NULL,enhanceList=NULL){
-  datCat<-unique(dat$dataCategory)
+chooseVisualization<-function(dat=NULL,objData = NULL,enhanceList=NULL,datCat = NULL){
 
-  if(length(datCat)>1) stop("Something is wrong in the data category")
   #NOTES TO SELF:
   #right now, assuming that temporal data is coming from a tabular source
   #in the future, people might just want to import a timeline they've already
@@ -17,6 +15,7 @@ chooseVisualization<-function(dat=NULL,objData = NULL,enhanceList=NULL){
                 "spatial" = plotMap(dat,objData),
                 "phyloTree"= plotPhyloTree(dat,objData),
                 "temporal" = plotTimeline(dat,objData,enhanceList),
+                "table" = plotCommonStat(dat,objData,enhanceList),
                 NULL)
   
   return(pList)
@@ -66,7 +65,7 @@ plotMap<-function(dat = NULL,objData = NULL){
   pList<-c()
   pList[["spatial"]] <- list(source = dat,
                       plot = baseMap,
-                      plotClass = "js")
+                      plotClass = "js-map")
   return(pList)
   
 }
@@ -74,7 +73,7 @@ plotMap<-function(dat = NULL,objData = NULL){
 #***********************************************
 # FUNCTION FOR PLOTTING PHYLOGENETIC TREE
 #***********************************************
-plotPhyloTree<-function(dat = NULL,objData = NULL){
+plotPhyloTree<-function(dat = NULL,objData = NULL,ehanceList = NULL){
   #Right now, trees are not combineable
   #So if multiple trees are supplied, multiple trees are visualized
   
@@ -88,13 +87,13 @@ plotPhyloTree<-function(dat = NULL,objData = NULL){
     return(pList)
   }else{
     id<-as.character(dat$dataID)
-    treePlot<-ggplot2::ggplot(objData[[id]]@data[[1]],aes(x=x,y=y)) +
+    treePlot<-ggtree::ggplot(objData[[id]]@data[[1]],aes(x=x,y=y)) +
       ggtree::geom_tree()+
       ggtree::theme_tree()
     
     pList[[id]]<-list(source = dat,
                       plot = treePlot,
-                      plotClass = "grid")
+                      plotClass = "grid-phyloTree")
     return(pList)
   }
 }
@@ -121,6 +120,7 @@ plotTimeline<-function(dat = NULL,objData = NULL, enhanceList = NULL,timevar = N
     
       pList[[id]]<-plotTimeline(dat[idx,],objData[id],enhanceList)[[1]]
     }
+    return(pList)
   }
 
   id <- as.character(unique(dat$dataSource))
@@ -170,6 +170,8 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
     }else{
       tab<-dplyr::count(tabDat,epiVisTimeVar)
     }
+  }else{
+    tab<-dplyr::count(tabDat,epiVisTimeVar)
   }
     
   #base curve
@@ -186,11 +188,141 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
 
   return(list(source = dat,
        plot = epicurve,
-       plotClass = "grid"))
+       plotClass = "grid-barchart"))
 }
 
 #helper function to attempt to try dates
 dateConv<-function(dateVal = NULL, dateSep =NULL,dateOrder=NULL){
   if(is.null(dateSep) & is.null(dateOrder))
     return(dateVal)
+}
+
+
+#*************************************************
+# FUNCTION FOR PLOTTING COMMON STATISTICAL CHARTS
+#*************************************************
+plotCommonStat<- function(dat = NULL,objData = NULL,enhanceList = NULL){
+
+  pList<-c()
+  #if the user has provided some variables, use a decision tree 
+  #to figure out what to plot. This is pretty straight forward
+  id <- as.character(unique(dat$dataSource))
+  
+  #if there's more than one table, visualize each separately
+  #table separately (for now)
+  if(length(id) > 1){
+    for(idVal in id){
+      #make sure to only include those variables when calling functions
+      visVars<-unlist(enhanceList[["visVars"]])
+      tmp<-dplyr::filter(dat,dataSource == idVal)
+      enhanceTmp<-sapply(enhanceList,function(x,visVars){
+        y<-intersect(unlist(x),visVars)
+        if(length(y)== 0)
+          return(NULL)
+        return(unlist(y))
+      },visVars = as.character(tmp$dataID))
+      
+      #call yo-self!
+      pList[[idVal]]<-dplyr::filter(tmp,objData[idVal],enhanceTmp)[[1]]
+    }
+    return(pList)
+  }
+  
+  #without user input, its not possible to establish what to draw
+  # #in the future, we'll store some data to get a better first guess
+  # if(is.null(enhanceList)){
+  #   pList[[id]]<-list(source = dat,
+  #                     plot = NULL,
+  #                     plotClass = "grid-chartType")
+  # }
+  
+  if(is.null(enhanceList[["visVars"]])){
+    pList[[id]]<-list(source = dat,
+                plot = NULL,
+                plotClass = "grid-chartType")
+    
+    return(pList)
+  }
+  
+  #if there is user input, carry on
+  
+  tabDat<-objData[[id]]@data[[1]]
+  visVars<-unlist(enhanceList[["visVars"]])
+  
+  #on the off case x and y pos variables are
+  #specified, but not vis vars make sure to account for that.
+  #This can happen if users delete a variable in a different dialogue box
+  visVars<-unique(c(visVars, enhanceList[["xPos"]],enhanceList[["yPos"]]))
+  
+  #Deciding what to visualize
+  #** 1. How many variables has the user specified? **
+  #  i - one variable (bar chart, histogram)
+  #  ii - two variables (scatter plot,boxplot,category stripe)
+  #  iii - more than two variables (all of the above with enhancements, heatmap)
+  
+  #** 2. Are the choosen variables all numeric, categorical, or mixed? **
+  
+  #** 3. Did the user specify x and y variables? **
+  #note, when the application starts, 
+  #users currently don't have the option specify x and y variables, 
+  #but can do so later. EpiDRIVE tries to come up with a good vis to start
+  
+  # if yes - these are first class variables
+  
+  #if no - default priorities as follows:
+  #  i - Numeric (Integer)
+  #  ii - Numeric (Double)
+  #  iii - Categorical (currently, order is arbitrarily assigned)
+  
+  dat<-dplyr::filter(dat,dataID %in% visVars)
+  varTypes<-c(sum(stringr::str_detect(as.character(dat$dataType),"character|factor")),
+              sum(stringr::str_detect(as.character(dat$dataType),"double|integer"))
+  )
+  names(varTypes)<-c("Categorical","Numeric")
+  numVar<-sum(varTypes)
+  
+  if(numVar == 1){
+    #univariate visualizations
+    varType<-names(varTypes)[which(varTypes>0)]
+    chartType<-univariatePlot(tabDat,visVars,varType)
+  }else if(numVar == 2){
+    #bivariate visualizations
+    varType<-names(varTypes)[which(varTypes>0)]
+    chartType<-bivariatePlot(tabDat,visVars,varType)
+  }else{
+    #multivariate visualizations
+    varType<-names(varTypes)[which(varTypes>0)]
+    chartType<-multivarablePlot(tabDat,visVars,varType)
+  }
+  
+  chartType$source<-dplyr::filter(dat,dataID %in% visVars)
+    
+  pList[[id]]<-chartType
+  
+  return(pList)
+
+}
+
+#Common statistical charts for single variables
+univariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL){
+  chartType<-NULL
+  return(list(source = NULL,
+              plot = "univariate plot",
+              plotClass = "grid-chartType"))
+}
+
+#Common statistical charts for two variables
+bivariatePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,posVar = NULL){
+  chartType<-NULL
+  return(list(source = NULL,
+              plot = "bivariate plot",
+              plotClass = "grid-chartType"))
+}
+
+#Common statistical charts for more than two variables
+multivarablePlot<-function(tabDat=NULL,visVars=NULL,varType = NULL,posVar = NULL){
+  chartType<-NULL
+  return(list(source = NULL,
+              plot = "multivariable plot",
+              plotClass = "grid-chartType"))
 }

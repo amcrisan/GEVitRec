@@ -132,7 +132,7 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
                                             ifelse(stringr::str_detect(dataType,";"),"specialVariableType","variableType")))
   
   allObjMeta<-allObjMeta %>%
-    filter(dataEntity %in% c("dataType","specialVariableType")) %>%
+    #filter(dataEntity %in% c("dataType","specialVariableType")) %>%
     mutate(dataCategory = sapply(dataType,function(x){
       strVal<-stringr::str_split(x,";")[[1]]
       if(length(strVal) == 1){
@@ -145,7 +145,6 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
         }
       }}))
   
-  
   #Assignment to reactive variables and removal of extra stuff
   inputDataValues$allObj<-allObj
   inputDataValues$allObjMeta<-allObjMeta
@@ -155,12 +154,21 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
   #-------- PREP DATA VIS OBJECT ------------------
 
   allVis<-c()
-  for(dt in unique(allObjMeta$dataCategory)){
+  dts<-dplyr::filter(allObjMeta,dataEntity %in% c("dataType","specialVariableType")) %>%
+    dplyr::select(dataCategory) %>%
+    unique()
+  
+  #visualize the data!
+  for(dt in dts$dataCategory){
     
-    if(!(dt %in% c("spatial","phyloTree","temporal")))
+    if(!(dt %in% c("spatial","phyloTree","temporal","table")))
       next()
     
-    df<-filter(allObjMeta,dataCategory== dt)
+    df<-dplyr::filter(allObjMeta,dataCategory== dt)
+    datCat<-unique(df$dataCategory)
+    
+    if(length(datCat)>1)
+      stop("Something is wrong here in the data category")
     
     #source of relevant variable tabular data
     varSrc<-filter(df,stringr::str_detect(dataType,";")) %>% 
@@ -172,12 +180,17 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
       select(dataID) %>% 
       unique()
     
-    datSrc<-c(as.character(varSrc[,1]),as.character(datSrc[,1]))
+    datSrc<-c(as.character(varSrc[1,]),as.character(datSrc[1,]))
     
     #remove any NA's
     datSrc<-datSrc[!is.na(datSrc)]
     
-    tmp<-chooseVisualization(df, allObj[datSrc])
+    if(dt == "table"){
+      #if it's a table, get out that metadata
+      df<-dplyr::filter(allObjMeta,dataSource %in% datSrc) 
+    }
+    
+    tmp<-chooseVisualization(df, allObj[datSrc],datCat = datCat)
     
     if(length(tmp) == 1){
       allVis[[dt]]<-tmp[[1]]
@@ -185,10 +198,11 @@ dataPath<-dplyr::bind_rows(dataPath,.id = toString(names(dataPath)))
       #for things like phylogenetic trees, common statistical charts, ect. that
       #are one function call but that must be separate views
       for(i in 1:length(tmp)){
-        allVis[[as.character(tmp[[i]]$source$dataID)]] <-tmp[[i]]
+        allVis[[as.character(tmp$source$dataID)]] <-tmp[[i]]
       }
     }
   }
+  
   
   datavis$visIndividual<-allVis
 

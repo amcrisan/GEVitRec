@@ -4,24 +4,18 @@ library(dplyr)
 library(ggplot2)
 library(ggtree)
 library(shiny)
-library(shinyFiles)
 library(stringr)
 
 #library(epivis) #this will load all the analytic functions in the R subfolder
 
 source("utils/data_load_support.R") #additional functions that support input of data to shiny app
-source("utils/data_vis_support.R") #additiona functions that support data visualization in shiny app
+source("utils/data_vis_support.R") #additional functions that support data visualization in shiny app
 
 liveStatus<-TRUE #testing code for data input functions. eventually should be removed
 dataDict<-readxl::read_xlsx(path="data_dictionaries/universal_data_dictionary.xlsx")
-chartSupport<-readxl::read_xlsx(path="utils/supported_charts.xlsx")
 
-getOptions<-function(item=NULL){
-  if(is.null(item))
-    return(NULL)
-  
-  return(list(vars=item))
-}
+#identifies the enhancements for each chart type
+chartInfo<-chartSupport("data_dictionaries/charts_and_enhancements.xlsx")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output,session) {

@@ -167,9 +167,9 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
   
   #summarizing case counts by the time variables
   if(!is.null(enhanceList)){
-    if("areaFill" %in% names(enhanceList)){
+    if("area_fill" %in% names(enhanceList)){
       tab<-tabDat %>% 
-        dplyr::group_by_("epiVisTimeVar",unlist(enhanceList[["areaFill"]])) %>%
+        dplyr::group_by_("epiVisTimeVar",unlist(enhanceList[["area_fill"]])) %>%
         count()
     }else{
       tab<-dplyr::count(tabDat,epiVisTimeVar)
@@ -187,13 +187,13 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
     if(is.null(enhanceList)){
       epicurve<-epicurve + ggplot2::geom_bar(stat = "identity")
     }else{
-      epicurve<-epicurve + ggplot2::geom_bar(stat = "identity",aes_string(fill = unlist(enhanceList[["areaFill"]])))
+      epicurve<-epicurve + ggplot2::geom_bar(stat = "identity",aes_string(fill = unlist(enhanceList[["area_fill"]])))
     }
 
   return(list(source = dat,
        datCat = "temporal",
        plot = epicurve,
-       plotClass = "grid-barchart",
+       plotClass = "grid-epicurve",
        enhancements = enhanceList))
 }
 

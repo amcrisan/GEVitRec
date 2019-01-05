@@ -22,6 +22,22 @@ chooseVisualization<-function(dat=NULL,objData = NULL,enhanceList=NULL,datCat = 
   
 }
 
+###### HELPER FUNCTIONS FOR ALL VISUALIZATIONS WITH GGPLOT AES ###########
+#A function to combine aes_strings from:
+#https://stackoverflow.com/questions/28777626/how-do-i-combine-aes-and-aes-string-options
+`+.uneval` <- function(a,b) {
+  `class<-`(modifyList(a,b), "uneval")
+}
+
+#Helper function to extract grid aesthetics
+makeAstheticString<-function(enhanceList = NULL){
+  if(is.null(enhanceList))
+      stop("Error : not list of enhancements was provided")
+  
+  
+}
+
+
 #***********************************************
 # FUNCTION FOR PLOTTING A MAP AND ADDING LAYERS
 #***********************************************
@@ -89,14 +105,22 @@ plotPhyloTree<-function(dat = NULL,objData = NULL,enhanceList = NULL){
     return(pList)
   }else{
     id<-as.character(dat$dataID)
-    treePlot<-ggtree::ggplot(objData[[id]]@data[[1]],aes(x=x,y=y)) +
+    treePlot<-ggtree::ggplot(data = objData[[id]]@data[[1]],aes(x=x,y=y)) +
       ggtree::geom_tree()+
       ggtree::theme_tree()
+    
+    #if there's something to modify, go ahead and do it
+    if(!is.null(enhanceList)){
+      #added marks : tip labels
+      
+      #re-encoded marks : lines
+      
+    }
     
     pList[[id]]<-list(source = dat,
                       datCat = "phyloTree",
                       plot = treePlot,
-                      plotClass = "grid-phyloTree",
+                      plotClass = "grid-tree",
                       enhancements = enhanceList)
     return(pList)
   }
@@ -187,7 +211,8 @@ plotEpicurve<-function(dat=NULL,objData = NULL,enhanceList=NULL,timevar = NULL){
     if(is.null(enhanceList)){
       epicurve<-epicurve + ggplot2::geom_bar(stat = "identity")
     }else{
-      epicurve<-epicurve + ggplot2::geom_bar(stat = "identity",aes_string(fill = unlist(enhanceList[["area_fill"]])))
+      epicurve<-epicurve + 
+        ggplot2::geom_bar(stat = "identity",aes_string(fill = unlist(enhanceList[["area_fill"]])))
     }
 
   return(list(source = dat,

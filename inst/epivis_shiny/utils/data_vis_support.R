@@ -46,3 +46,23 @@ getOptions<-function(item=NULL){
   
   return(list(vars=item))
 }
+
+#autogenerating the enhacement list
+getEntityNames<-function(chartInfo= NULL){
+  entityNames<-lapply(chartInfo,function(x){
+    lapply(names(x),function(y,dat){
+      tmp<-dat[[y]]
+      
+      if(is.null(tmp))
+        return(NA)
+      
+      tmp<-tmp %>% mutate(elemName= ifelse(stringr::str_detect(markElement,"point|line|area"),
+                                           paste(markElement,y,sep="_"),
+                                           y))
+      
+      tmp$elemName
+    },dat=x)
+  }) %>% unlist() %>% unique()
+  
+  return(entityNames)
+}

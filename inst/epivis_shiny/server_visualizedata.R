@@ -69,22 +69,16 @@ output$indiVis<-renderUI({
 #Modify plots if the user chooses to enhance the plot
 observeEvent(input$redraw,{
   visItem<-datavis$visIndividual[[input$visDataSet]]
-  #List of elements to enhance visual appearance
-  enhanceList<-list(area_fill = getOptions(input$area_fill_selected),
-                    pointFill = NULL,
-                    pointColour = NULL,
-                    pointTransparency = NULL,
-                    lineTransparency = NULL,
-                    areaTransparency = NULL,
-                    pointSize = NULL,
-                    lineWidth = NULL,
-                    timeOne = NULL,
-                    timeTwo = NULL,
-                    xPos = NULL,#tabular data only
-                    yPos = NULL, #tabular data only
-                    visVars = getOptions(input$visVars_selected) #tabular data only
-  )
   
+  #List of elements to enhance visual appearance
+  enhanceList<-sapply(entityNames,function(x){
+    if(is.na(x))
+      return(NULL)
+    
+    return(getOptions(input[[paste(x,"selected",sep="_")]]))
+    
+    })
+
   #Remove empty items that are null
   enhanceList<-base::Filter(Negate(is.null), enhanceList)
   

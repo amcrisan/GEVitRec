@@ -16,6 +16,8 @@ dataDict<-readxl::read_xlsx(path="data_dictionaries/universal_data_dictionary.xl
 
 #identifies the enhancements for each chart type
 chartInfo<-chartSupport("data_dictionaries/charts_and_enhancements.xlsx")
+entityNames<-getEntityNames(chartInfo)
+
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output,session) {

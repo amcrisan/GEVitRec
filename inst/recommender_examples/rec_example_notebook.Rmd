@@ -1,0 +1,40 @@
+---
+title: "GEViTRec"
+author: "Anamaria Crisan"
+date: '2019-02-01'
+output: html_document
+---
+
+
+## Loading data
+```{r}
+devtools::load_all() #temporary once things are done
+
+#Table data
+tab_dat<-input_data(file = system.file("extdata", "ebov_metadata.csv", package = "gevitR"),dataType = "table")
+
+#Tree data
+tree_dat<-input_data(file = system.file("extdata", "ebov_tree.nwk", package = "gevitR"),dataType = "tree")
+
+#Genomic data
+genomic_dat<-input_data(file = system.file("extdata", "ebov_GIN_genomic.fasta", package = "gevitR"),dataType = "dna")
+
+#Shape files
+#Shape files require that .shp,.shx,and .prj files at a minimun to be in the same directory
+#to add metadata to the shape file, you can also add .dbf files
+gin_shape_dat<-input_data(file = system.file("extdata", "gin_admbnda_adm1_ocha_itos.shp", package = "gevitR"),dataType = "spatial")
+lbr_shape_dat<-input_data(file = system.file("extdata", "lbr_admbnda_adm1_ocha.shp", package = "gevitR"),dataType = "spatial")
+sle_shape_dat<-input_data(file = system.file("extdata", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp", package = "gevitR"),dataType = "spatial")
+```
+
+## Data Harmonization
+```{r}
+harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,gin_shape_dat,lbr_shape_dat,sle_shape_dat)
+```
+
+### Show how data objects are related to each other
+```{r,fig.height=7,units="in"}
+view_entity_graph(harmon_obj)
+```
+
+## Chart Recommendations

@@ -1,5 +1,17 @@
 
+#' Title
+#'
+#' @param ... 
+#' @param dataDict 
+#' @import igraph
+#' @import dplyr
+#' @import tidygraph
+#' @return
+#' @export
+#'
+#' @examples
 data_harmonization<-function(...,dataDict=NULL){
+  
   allObj<-list(...)
   
   #use internal data dictionary if none is provided
@@ -62,6 +74,31 @@ data_harmonization<-function(...,dataDict=NULL){
   
   #create a graph
   exploded_graph<-igraph::graph_from_data_frame(exploded_edges,directed = FALSE)
+  exploded_graph<-tidygraph::as_tbl_graph(exploded_graph)
+  
+  #adding metadata
+  #note as_tiddle lets you see node data for testing
+  exploded_graph<- exploded_graph %>%
+    activate(edges) %>%
+    mutate(jaccard_distance = 1-as.numeric(weights)) %>%
+    mutate(edge_type =  ifelse((jaccard_distance == 1), "direct","inferred")) %>%
+    activate(nodes) %>%
+    full_join(allObjMeta,by=c("name" ="dataID")) %>%
+    mutate(dataSource = ifelse(file.exists(as.character(dataSource)),name,as.character(dataSource))) %>%
+    mutate(dataType  = ifelse(is.na(dataType),"character",as.character(dataType))) %>%
+    mutate(dataSource = ifelse(is.na(dataSource), as.character(name),as.character(dataSource))) %>%
+    mutate(dataSource = ifelse(grepl("gevitID",dataSource),
+                               gsub("_gevitID","",dataSource),
+                               as.character(dataSource)))%>%
+    mutate(dataEntity  = ifelse(is.na(dataEntity),"feild",as.character(dataEntity))) %>%
+    mutate(degree = centrality_degree())
+  
+  graph_components<-components(exploded_graph)$membership %>% stack()
+  colnames(graph_components)<-c("component","name")
+  
+  exploded_graph<-exploded_graph%>% activate(nodes)%>%
+    inner_join(graph_components,by="name")
+  
   
   #-------- RETURN HARMONIZED DATA OBJECT ------------------
   harmonized<-list("dataObj" = allObj,
@@ -74,32 +111,55 @@ data_harmonization<-function(...,dataDict=NULL){
   return(harmonized)
 }
 
-view_entity_graph<-function(harmon_obj = NULL){
-  if(!"GEVITRec" %in% class(harmon_obj))
-    return("This method only works for gevitREC objects")
-  
-  exploded_graph<-harmon_obj[["entityGraph"]]
-  objMeta<-harmon_obj[["dataMeta"]]
+#' Title
+#'
+#' @param g 
+#' @param cutoff 
+#' @import igraph
+#' @import dplyr
+#' @import tidygraph
+#' @return
+#' @export
+#'
+#' @examples
+subset_graph<-function(g=NULL,cutoff=0){
 
+  g<-g %>%
+    activate(edges)%>%
+    filter(jaccard_distance >= cutoff) %>%
+    activate(nodes)%>%
+    mutate(degree = centrality_degree())
+  
+  
+  graph_components<-components(g)$membership %>% stack()
+  colnames(graph_components)<-c("component","name")
+  
+  g<-g %>% activate(nodes) %>%
+    inner_join(graph_components,by="name") %>% 
+    mutate(component = component.y)%>%
+    dplyr::select(-contains('component.x')) %>%
+    dplyr::select(-contains('component.y'))
 
-  exploded_graph<-tidygraph::as_tbl_graph(exploded_graph)
   
-  #adding metadata
-  #note as_tiddle lets you see node data for testing
-  exploded_graph<- exploded_graph %>%
-    activate(edges) %>%
-    mutate(jaccard_distance = 1-as.numeric(weights)) %>%
-    mutate(edge_type =  ifelse((jaccard_distance == 1), "direct","inferred")) %>%
-    activate(nodes) %>%
-    full_join(objMeta,by=c("name" ="dataID")) %>%
-    mutate(dataSource = ifelse(file.exists(as.character(dataSource)),name,as.character(dataSource))) %>%
-    mutate(dataType  = ifelse(is.na(dataEntity),"character",as.character(dataEntity))) %>%
-    mutate(dataSource = ifelse(is.na(dataSource), as.character(name),as.character(dataSource))) %>%
-    mutate(dataSource = ifelse(grepl("gevitID",dataSource),
-                               gsub("_gevitID","",dataSource),
-                               as.character(dataSource)))%>%
-    mutate(dataEntity  = ifelse(is.na(dataEntity),"feild",as.character(dataEntity)))
+  return(g)
+}
+
+#' Title
+#'
+#' @param exploded_graph 
+#' @param cutoff 
+#' @import ggplot2
+#' @import ggraph
+#' 
+#' @return
+#' @export
+#'
+#' @examples
+view_entity_graph<-function(exploded_graph = NULL,cutoff=0){
   
+  if(!"igraph" %in% class(exploded_graph))
+    return("need igraph object")
+
   #Creating the graph objet to view
   p<-ggraph(exploded_graph) +
     geom_edge_link(aes(linetype = edge_type,alpha = jaccard_distance))+

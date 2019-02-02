@@ -4,7 +4,7 @@ Version: 0.1.0
 Date: 2018-01-26
 Authors@R: person("Ana", "Crisan", email = "acrisan@cs.ubc.ca", role = c("aut", "cre"))
 Description: A shiny application and analysis engine for microbial genomic epidemiology
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
 License: MIT + file LICENSE
 NeedsCompilation: no
 Packaged: 2018-10-02 00:00:52 UTC; anamaria.crisan

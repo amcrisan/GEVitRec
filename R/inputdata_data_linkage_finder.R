@@ -184,7 +184,17 @@ check_link<-function(item_one = NA,item_two=NA,item_one_name=NA,item_two_name=NA
 
 
 #FUNCTION : FIND LINKS BETWEEN DIFFERENT DATA TYPES
+#' Title
+#'
+#' @param allObj 
+#' @param allObjMeta 
+#' @param cutoff 
+#'
+#' @importFrom dplyr %>%
+#' @return
+
 findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
+  
   if(length(allObj) < 2)
     return(NULL)
   

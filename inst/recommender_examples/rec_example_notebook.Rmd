@@ -29,25 +29,35 @@ sle_shape_dat<-input_data(file = system.file("./inst/extdata/", "sle_admbnda_adm
 
 ## Data Harmonization
 ```{r}
-devtools::load_all()
 harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,gin_shape_dat,lbr_shape_dat,sle_shape_dat)
 ```
 
-### Show how data objects are related to each other
-```{r,fig.height=7,units="in"}
+It's possible to view the entityt graph of how all of the data sources are linked together
+```{r}
 view_entity_graph(harmon_obj[["entityGraph"]])
+```
 
+It's also possible to filter according to the strength of the jaccard distance strength. A strength of 1 means that two variables in different datasets are effectively the same (have set equality), whereas 0 means that they have nothing in common.
+```{r}
 view_entity_graph(subset_graph(harmon_obj[["entityGraph"]],1))
 ```
 
 ## Chart Recommendations
 
-### Temporary - sorting out few functions
-```{r}
-objMeta<-harmon_obj[["dataMeta"]]
-entity_graph<-subset_graph(harmon_obj[["entityGraph"]],1)
+With the data harmonized, it is possible to generate specifications for different charts. It possible to use the whole graph too.
 
+### Temporary - sorting out few functions
+
+```{r}
+load("../../R/sysdata.rda")
+
+objMeta<-harmon_obj[["dataMeta"]]
+obj<-harmon_obj[["dataObj"]]
 entity_graph<-harmon_obj[["entityGraph"]]
+
+datOnly<-dplyr::filter(objMeta,dataEntity == "dataType")
+
+E(entity_graph)$weight<-1-as.numeric(E(entity_graph)$weights)
 
 entity_graph_table<-as_tibble(entity_graph)
 
@@ -60,6 +70,7 @@ component_info<- entity_graph_table %>%
   dplyr::count() %>%
   dplyr::arrange(desc(n))
 
+spec_list_all<-c()
 for(comp in component_info$component){
   comp_info<-dplyr::filter(component_info,component == comp)
   
@@ -83,13 +94,88 @@ for(comp in component_info$component){
   dats<-as.numeric(V(entity_graph)[as.character(comp_data$name)])
   dat_paths<-igraph::all_shortest_paths(entity_graph,from=dats,to=dats)$res
   
-  for(idx in 1:length(dat_paths)){
-    conn_nodes<-as_ids(dat_paths[[1]])
-    seed_specs<-dplyr::filter(entity_graph_table,name %in% conn_nodes)
-    gen_specs(seed_specs)
+  #rank paths according to the number of visualizations linked
+  #and the strength of the path - favour strongly connected paths
+  pathRank<-sapply(dat_paths,function(path_val,scoring_table){
+    VP = as.numeric(path_val)
+    EP = rep(VP, each=2)[-1]
+    EP = EP[-length(EP)]
+    
+    #a perfectly aligned path has a weight of one, because everything is a strong connection
+    strength_var<-sum(E(entity_graph)$weight[get.edge.ids(entity_graph, EP)])/(length(VP)-1)
+    
+    if(is.nan(strength_var)){ strength_var <- 0} #try to avoid single charts
+   
+    #rate the path by the high relevance chart types
+    datTypes<-dplyr::filter(datOnly,dataID %in% as_ids(path_val)) %>%
+      dplyr::inner_join(chart_scores,by=c("dataType" = "dataSource")) %>%
+      group_by(dataID) %>%
+      do(summarise(.,max(rescale)))
+    
+    diversity<-nrow(datTypes)
+    relevance<-sum(datTypes$`max(rescale)`)
+    score = (diversity*relevance)*strength_var
+    
+    return(c(score,strength_var,diversity,relevance))
+
+  },scoring_table = chart_scores) %>% t() %>% data.frame(.,stringsAsFactors=FALSE)
+  
+  colnames(pathRank)<-c("score","strength","diversity","relevance")
+  pathRank$pathIndex<-1:length(dat_paths)
+  
+  #for now - choose the top path
+  #top-two paths for each component
+  #consider making this more variable if path lengths are store ect..
+  pathRank<- pathRank %>% arrange(desc(strength),desc(score)) %>% head(4)
+  
+  #convert the path into a specification for a chart or two
+  for(idx in pathRank$pathIndex){
+    print(idx)
+    path_var<-as_ids(dat_paths[[idx]])
+    
+    dats<-dplyr::filter(datOnly,dataID %in% path_var)
+    vars<-dplyr::filter(entity_graph_table,dataSource %in% as.character(dats$dataID)) %>% 
+      dplyr::filter(dataEntity == "feild")
+    
+    required<-path_var[path_var %in% vars$name]
+    
+    #add some more context to the variables
+    #so that its possible further refine what they
+    #are assigned to, espeically categorical variables
+    #with a larger number of variables that really
+    #don't do well assigned to colour
+    #for(var in vars$name){
+    vars$feild_detail<-sapply(vars$name,function(var,vars,obj,objMeta){
+      tmp<-dplyr::filter(vars,name == var)
+      tmp<-get_feild_details(feild = tmp$name,
+                        feild_type = tmp$dataType,
+                        datSource = tmp$dataSource,
+                        obj = obj,
+                        meta = objMeta)  
+    },vars = vars,obj = obj, objMeta = objMeta) %>% unname()
+    
+    total_quant = dplyr::filter(vars,feild_detail %in% c("quant","qual-pos")) %>% count()
+    total_qual = dplyr::filter(vars,!feild_detail %in% c("quant","qual-pos")) %>% count()
+
+    
+    #small test case - specs for each table
+    if(total_quant$n > 0 | total_qual$n>0){
+       spec_list<-assign_vars(datFeilds = vars,
+                              require_var = required,
+                              n_quant=ifelse(total_quant$n>3,3,total_quant$n),
+                              n_qual=ifelse(total_qual$n>2,2,total_qual$n))
+       rep_len<-ifelse(is.null(dim(spec_list)),1,nrow(spec_list))
+       if(rep_len == 1){
+         if(!is.null(spec_list)){
+           spec_list<-c(comp,idx,spec_list)
+         }
+       }else{
+         spec_list<-cbind(rep(comp,rep_len),rep(idx,rep_len),spec_list)
+       }
+       spec_list_all<-rbind(spec_list_all,spec_list)
+    }
   }
 }
-
 ```
 
 Using the example below, there are a total of 300 possible combinations of specifications, but when we apply the constraints on the graph for nodes with high degrees that connect information, there are now suddenly only 9 specifications that we care about. MUCH MUCH more mangeable.
@@ -98,81 +184,5 @@ Can futher narrow it down if the user has provided variables they care about, th
 
 Also - write out the math for this to prove this assertion because it will help in the paper
 
-```{r}
-datFeilds<-filter(entity_graph_table,dataSource == "table_VTFEH2385H") %>%
-  filter(dataEntity == "feild")
-
-require_var="longitude"
-
-filter_combo<-function(combos,require_var=NULL){
-  if(is.null(require_var))
-    return(combos)
-  
-    req_present<-apply(combos,2,function(x,req_var){
-       sum(req_var %in% x)
-    },req_var = require_var)
-    
-    n_req<-nrow(combos) #default for combn output
-   
-     if(length(require_var)<n_req){ n_req <-length(require_var)}
-    
-    idx_keep<-req_present>=n_req
-    return(combos[,idx_keep])
-}
-
-assign_vars<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,n_qual=2){
-  #high_degree vars have priority, because they can
-  #faciliate combinations with other data
-  connect_node<-dplyr::filter(datFeilds, degree>1) %>%
-    dplyr::arrange(desc(degree)) %>%
-    head(5)  
-    
-  require_var<-c(require_var,connect_node$name)
-    
-  quant<-dplyr::filter(datFeilds,dataType %in% c("double"," integer"))
-  qual<-dplyr::filter(datFeilds,dataType %in% c("character"))
-  
-  quant_require<- if (!is.null(require_var)) intersect(quant$name,require_var) else NULL
-  qual_require<- if (!is.null(require_var)) intersect(qual$name,require_var) else NULL
-    
-  #a bit exaggerated because it doesn't take require variales into account
-  n_combos<- choose(length(qual),n_qual) * choose(length(qual),n_quant)
-  
-  #and goo..
-  if(n_combos>1000){
-    stop("Haven't implemented this yet")
-  }
-  
-  combo_quant<-filter_combo(combn(quant$name,m=n_quant),require_var = quant_require)
-  combo_qual<-filter_combo(combn(qual$name,m=n_qual),require_var = qual_require)
-
-  #generate specifications
-  spec_list<-apply(combo_quant,2,function(x,combo_qual,n_quant,n_qual){
-    spec<-apply(combo_qual,2,function(y,x,n_quant,n_qual){
-      quant_vec<-rep(NA,n_quant)
-      qual_vec<-rep(NA,n_qual)
-        
-      quant_vec[1:length(x)]<-x
-      qual_vec[1:length(y)]<-y
-        
-      spec<-c(quant_vec,qual_vec)
-      list(spec)
-    },x = x,n_quant = n_quant,n_qual = n_qual)
-    spec<-unlist(spec,recursive = FALSE)
-  },combo_qual=combo_qual) %>%
-      lapply(.,function(x){
-        do.call(rbind,x)
-      }) %>% do.call(rbind,.)
-  
-  return(spec_list)
-}
-
-```
 
 For most chart types, positional variables will already be take up (like a phylogenetic tree), and so the quantiative positional variables don't matter, but non-positional channels can be added via other variables if the chart type has its own metadata, or is linked to another variable that does with a direct link.
-
-### Temporary - loading and preping gevit data
-```{r}
-gevit_articles<-readxl::read_xlsx(path="../../../gevit_gallery_v2/data/MasterDocumentList.xlsx")
-gevit_taxonomy<-readxl::read_xlsx(path="../../../gevit_gallery_v2/data/figure_classification_final.xlsx")
-```

@@ -14,35 +14,6 @@ filter_combo<-function(combos,require_var=NULL){
   return(combos[,idx_keep])
 }
 
-get_feild_details<-function(feild = NULL,feild_type = NULL,datSource = NULL,obj=NULL,meta){
-  if(any(c("double","integer") %in% feild_type)){return("quant")}
-  
-  dat_tmp<-NULL
-  index<-which(meta$dataID == datSource)
-  
-  if(grepl("table",datSource)){
-    dat_tmp<-obj[[index]]@data[[1]]
-    dat_tmp<-dat_tmp[,feild]
-  }else if (!is.null(obj[[index]]@data$metadata)){
-    if(grepl("gevitID",feild)){
-      dat_tmp<-returnItemData(index,obj,meta)
-    }else{
-      dat_tmp<-obj[[index]]@data$metadata
-      dat_tmp<-dat_tmp[,feild]
-    }
-  }else{
-    dat_tmp<-returnItemData(index,obj,meta)
-  }
-  
-  if(is.null(dat_tmp)){return("ERROR!")}
-  
-  var<-unique(dat_tmp)
-  if(length(var)>12){
-    return("qual-pos")
-  }else{
-    return(paste("qual",length(var),sep="-"))
-  }
-}
 
 assign_vars<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,n_qual=2){
   #high_degree vars have priority, because they can
@@ -51,10 +22,10 @@ assign_vars<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,
     dplyr::arrange(desc(degree)) %>%
     head(5)  
   
-  require_var<-c(require_var,connect_node$name)
+  require_var<-unique(c(require_var,connect_node$name))
   
-  quant<-dplyr::filter(datFeilds,feild_detail %in% c("quant","qual-pos"))
-  qual<-dplyr::filter(datFeilds,!(feild_detail %in% c("quant","qual-pos")))
+  quant<-dplyr::filter(datFeilds,feild_detail %in% c("quant","qual-many"))
+  qual<-dplyr::filter(datFeilds,!(feild_detail %in% c("quant","qual-many")))
   
   quant_require<- if (!is.null(require_var)) intersect(quant$name,require_var) else NULL
   qual_require<- if (!is.null(require_var)) intersect(qual$name,require_var) else NULL
@@ -81,7 +52,7 @@ assign_vars<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,
   }else if(use_quant){
     spec_list<-single_specs(combo_quant,"quant")
   }else if(use_qual){
-    spec_list<-single_specs(combo_quant,"qual")
+    spec_list<-single_specs(combo_qual,"qual")
   }
   
   return(spec_list)
@@ -174,18 +145,37 @@ join_combos<-function(combo_one,combo_two,n_combo_one,n_combo_two){
 }
 
 get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
-  #load("../../R/sysdata.rda")
-  
+
+  # --- Prep input data ----
   objMeta<-harmon_obj[["dataMeta"]]
   obj<-harmon_obj[["dataObj"]]
   entity_graph<-harmon_obj[["entityGraph"]]
+  
   edgeList<-dplyr::filter(harmon_obj[["edgeList"]],link_type == "var-var")
+  rev_edge<-cbind(edgeList[,2],edgeList[,1],edgeList[,3:4])
+  names(rev_edge)<-names(edgeList)
+  edgeList<-rbind(edgeList,rev_edge)
   
   datOnly<-dplyr::filter(objMeta,dataEntity == "dataType")
   
   E(entity_graph)$weight<-1-as.numeric(E(entity_graph)$weights)
   
   entity_graph_table<-as_tibble(entity_graph)
+  
+  #fill in those missing variables for the ID
+  entity_graph_table$feild_detail<-apply(entity_graph_table[,1:5],1,function(x,meta,obj){
+    if(!is.na(x[5]))
+      return(x[5])
+    
+    if(x[4] == "dataType")
+      return(NA)
+    
+    get_feild_details(feild = x[1],
+                      feild_type = x[2],
+                      datSource = x[3],
+                      obj = obj,
+                      meta = meta)
+  },meta = objMeta,obj=obj)
 
   # --- Identify graph components, build specs for each ----
   #number of data types per component
@@ -260,7 +250,8 @@ get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
     for(idx in pathRank$pathIndex){
       path_var<-as_ids(dat_paths[[idx]])
       
-      dats<-dplyr::filter(datOnly,dataID %in% path_var)
+      dats<-dplyr::filter(datOnly,dataID %in% gsub("_gevitID","",path_var))
+      
       vars<-dplyr::filter(entity_graph_table,dataSource %in% as.character(dats$dataID)) %>% 
         dplyr::filter(dataEntity == "feild")
       
@@ -269,22 +260,6 @@ get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
       if(!is.null(usrChoices)){
         required<-c(required,usrChoices)
       }
-      
-      #add some more context to the variables
-      #so that its possible further refine what they
-      #are assigned to, espeically categorical variables
-      #with a larger number of variables that really
-      #don't do well assigned to colour
-      #for(var in vars$name){
-      vars$feild_detail<-sapply(vars$name,function(var,vars,obj,objMeta){
-        tmp<-dplyr::filter(vars,name == var)
-        tmp<-get_feild_details(feild = tmp$name,
-                               feild_type = tmp$dataType,
-                               datSource = tmp$dataSource,
-                               obj = obj,
-                               meta = objMeta)  
-      },vars = vars,obj = obj, objMeta = objMeta) %>% unname()
-      
       
       # generate charts by data type
       # if that data type is directly connected to other
@@ -297,68 +272,122 @@ get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
       }
       
       #create data specifications for individual chart types
-      for(datSrc in unique(vars$dataSource)){
+      for(datSrc in dats$dataID){
         
         req_tmp<-required
         chartType<-dplyr::filter(objMeta, dataID == as.character(datSrc))
         
+        full_link<-NA
+        partial_link<-NA
+        
         if(as.character(chartType$dataType) !="table"){
-        link_vars<-c(which(grepl(as.character(datSrc),edgeList$dataset)),
-          which(grepl(as.character(datSrc),edgeList$var)))
-        
-        link_strength<-edgeList[link_vars,]
-        
-        #when there is a prefect match free up the objects quant variables for others
-        #since other positional variables will already be occupied
-        spatial_link<-as.character(unlist(link_strength[which(link_strength$weights == 0),c(1,2)])) #0 is exact match
-        req_tmp<-setdiff(req_tmp,spatial_link)
-        req_tmp<-if(length(req_tmp)==0) "" else req_tmp
-        
-        #if its not an exact match then, some other channel must be assigned to it
-        #in which case, don't change anything and don't record the linkage
-        #work it out when cleaning up the specs
+          link_strength<-dplyr::filter(edgeList,grepl(as.character(datSrc),dataset)) %>%
+            dplyr::filter(var %in% path_var)
         }else{
-          spatial_link<-NA
+          tmp_var<-dplyr::filter(vars,dataSource == datSrc)
+          link_strength<-dplyr::filter(edgeList,dataset %in% tmp_var$name) %>%
+            dplyr::filter(var %in% path_var)
         }
         
-        tmp<-dplyr::filter(vars,!grepl(paste(datSrc,"gevitID",sep="_"),name))
-        if(all(!is.na(spatial_link))){
-          tmp<-dplyr::filter(tmp,!(name %in% spatial_link))
-        }
-
-        total_quant =  tmp %>% dplyr::filter(feild_detail %in% c("quant","qual-pos")) %>% count()
-        total_qual = tmp %>% dplyr::filter(!feild_detail %in% c("quant","qual-pos")) %>% count()
-        
-        #small test case - specs for each table
-        if(total_quant$n > 0 | total_qual$n>0){
-          spec_list<-assign_vars(datFeilds = tmp,
-                                 require_var = req_tmp,
-                                 n_quant=ifelse(total_quant$n>3,3,total_quant$n),
-                                 n_qual=ifelse(total_qual$n>2,2,total_qual$n))
+        if(nrow(link_strength)>0){
+          #when there is a prefect match free up the objects quant variables for others
+          #since other positional variables will already be occupied
+          full_link<-unique(as.character(dplyr::filter(link_strength,weights == 0)$var))
+          partial_link<-unique(as.character(dplyr::filter(link_strength,weights != 0)$var))
           
-          rep_len<-ifelse(is.null(dim(spec_list)),1,nrow(spec_list))
-          linkage<-ifelse(all(!is.na(spatial_link)),paste(spatial_link,collapse=","),NA)
+          full_link<-ifelse(length(full_link)>0,full_link,NA)
+          partial_link<-ifelse(length(partial_link)>0,partial_link,NA)
+        }
         
-          if(rep_len == 1){
-            if(!is.null(spec_list)){
-              spec_list<-c(comp,
-                           idx,
-                           as.character(chartType$dataType),
-                           as.character(chartType$dataID),
-                           spec_list,
-                           linkage)
+        tmp<-dplyr::filter(vars,!grepl("gevitID",name))
+        #tmp<-vars
+        #if there are no variables to link on, then
+        if(nrow(tmp)==0){
+          spec_list<-c(comp,
+                       idx,
+                       as.character(chartType$dataType),
+                       as.character(chartType$dataID),
+                       c(NA,NA,NA,NA,NA),
+                       full_link,
+                       partial_link)
+        }else{
+          
+          all_links<-unique(c(partial_link,full_link,req_tmp))
+          all_links<-all_links[!is.na(all_links)]
+          
+          n_quant<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          n_qual<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          
+          # if(all(!is.na(full_link)) & as.character(chartType$dataType) !="table"){
+          #   tmp<-dplyr::filter(tmp,!(name %in% full_link))
+          # }
+          # 
+          # if(all(!is.na(partial_link))){
+          #   #prioritize highly connected nodes
+          #   #even if they are not perfect matches
+          #   all_links<-unique(c(partial_link,full_link,req_tmp))
+          # 
+          #   n_quant<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          #   n_qual<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+
+            if(nrow(n_quant)<3 & nrow(n_quant)>0){
+              n_quant_extra<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>%
+                anti_join(n_quant)
+              if(nrow(n_quant_extra)>(3-nrow(n_quant))){
+                n_quant_extra<-n_quant_extra %>% dplyr::sample_n(3-nrow(n_quant))
+                n_quant<-rbind(n_quant,n_quant_extra)
+              }
             }
-          }else{
-            spec_list<-cbind(rep(comp,rep_len),
-                             rep(idx,rep_len),
-                             rep(as.character(chartType$dataType),rep_len),
-                             rep(as.character(chartType$dataID,rep_len)),
+
+            if(nrow(n_qual)<2 & nrow(n_qual)>0){
+              n_qual_extra<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>%
+                anti_join(n_qual)
+              if(nrow(n_qual_extra)>(2-nrow(n_qual))){
+                n_qual_extra<-n_qual_extra %>%dplyr::sample_n(2-nrow(n_qual))
+                n_qual<-rbind(n_qual,n_qual_extra)
+              }
+            }
+
+            tmp<-rbind(n_quant,n_qual)
+           #}
+          
+          total_quant =  tmp %>% dplyr::filter(feild_detail %in% c("quant","qual-many")) %>% count()
+          total_qual = tmp %>% dplyr::filter(!feild_detail %in% c("quant","qual-many")) %>% count()
+          
+          #Finally, generate a more complex set of specifications
+          if(total_quant$n > 0 | total_qual$n>0){
+            spec_list<-assign_vars(datFeilds = tmp,
+                                   require_var = req_tmp,
+                                   n_quant=ifelse(total_quant$n>3,3,total_quant$n),
+                                   n_qual=ifelse(total_qual$n>2,2,total_qual$n))
+            
+            rep_len<-ifelse(is.null(dim(spec_list)),1,nrow(spec_list))
+            full_linkage<-ifelse(all(!is.na(full_link)),paste(full_link,collapse=","),NA)
+            partial_linkage<-ifelse(all(!is.na(full_link)),paste(partial_link,collapse=","),NA)
+            
+          
+            if(rep_len == 1){
+              if(!is.null(spec_list)){
+                spec_list<-c(comp,
+                             idx,
+                             as.character(chartType$dataType),
+                             as.character(chartType$dataID),
                              spec_list,
-                             rep(as.character(linkage,rep_len)))
+                             full_linkage,
+                             partial_linkage)
+              }
+            }else{
+              spec_list<-cbind(rep(comp,rep_len),
+                               rep(idx,rep_len),
+                               rep(as.character(chartType$dataType),rep_len),
+                               rep(as.character(chartType$dataID,rep_len)),
+                               spec_list,
+                               rep(as.character(full_linkage,rep_len)),
+                               rep(as.character(partial_linkage,rep_len)))
+            }
           }
         }
         
-        #if(is.null(dim(spec_list))) print(length(spec_list)) else print(dim(spec_list))
         spec_list_all<-rbind(spec_list_all,spec_list)
       }
       
@@ -380,7 +409,8 @@ get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
                             quant_3=spec_list_all[,7],
                             qual_1 =spec_list_all[,8],
                             qual_2 = spec_list_all[,9],
-                            linkage = spec_list_all[,10],
+                            full_linkage = spec_list_all[,10],
+                            partial_linkage = spec_list_all[,11],
                             stringsAsFactors = FALSE)
   
   spec_list_all$graph_path<-sapply(spec_list_all$graph_path,function(x){
@@ -396,6 +426,7 @@ get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
 clean_up_spec<-function(path_specs = NULL,top_n = 10){
   spec_list<-path_specs$specs
   path_info<-path_specs$paths
+  meta<-harmon_obj[["dataMeta"]]
   
   #small clean up
   path_info$graph_component<-as.character(path_info$graph_component)
@@ -409,22 +440,96 @@ clean_up_spec<-function(path_specs = NULL,top_n = 10){
   #it still must be reduced to a few more reasonable options
   #overall, if there are ten visualizations to produced for each component
   #that is the most important
-  count_charts<-spec_list %>%
-    group_by(graph_component,graph_path) %>%
-    count() %>% View()
-    ungroup() %>%
-    inner_join(path_info[,c("graph_component","graph_path","diversity","score")])
+  # count_charts<-spec_list %>%
+  #   group_by(graph_component,graph_path) %>%
+  #   count() %>%
+  #   ungroup() %>%
+  #   inner_join(path_info[,c("graph_component","graph_path","diversity","score")])
+  # 
+  # n_charts<-sum(count_charts$n)
   
-  n_charts<-sum(count_charts$n)
-  
-  if(count_charts$nn > top_n){
-   #there are still way too many charts
-   #further summarize ny giving the user the top 10
-    for(comp in unique(spec_list$graph_component)){
-      for(pathVal in unique(spec_list$graph_path)){
-        
+  #there are still way too many charts
+  #further summarize ny giving the user the top 10
+  allSpecs<-c()
+  spec_idx<-1
+  for(comp in unique(spec_list$graph_component)){
+    for(pathVal in unique(spec_list$graph_path)){
+      chart_specs<- dplyr::filter(spec_list,graph_component==comp & graph_path == pathVal)
+      if(nrow(chart_specs) == 0){
+        next
       }
+      single_specs<-c()
+      for(i in 1:nrow(chart_specs)){
+        single_chart<-chart_specs[i,]
+        aes_vars<-chart_specs[i,5:9]
+
+        var_info<-match(aes_vars,meta$dataID)
+        var_info<-meta[var_info,]
+        
+        #ordering variables
+        var_info<-var_info %>%
+          mutate(var_value = ifelse(!is.na(as.numeric(gsub("qual-","",feild_detail))),
+                                    as.numeric(gsub("qual-","",feild_detail)),
+                                    13))
+        #see if there's anything that's in the combo_variables and put that first
+        if(!is.na(chart_specs$full_linkage)){
+          link_pos<-which(var_info$dataID %in% chart_specs$full_linkage)
+          var_info[link_pos,]$var_value<-14
+        }
+        
+        var_info<-arrange(var_info,desc(var_value)) #sort in order
+        
+        #assign thiese to postion, size, shape, and colour
+        quant<-c("pos1","pos2","size")
+        qual<-c("color","shape")
+        tmp2<-c()
+        
+        for(j in 1:nrow(var_info)){
+          if(is.na(var_info[j,]$feild_detail)){
+            tmp2<-tmp2<-c(tmp2,NA)
+          }else if(var_info[j,]$feild_detail %in% c("quant","qual-many")){
+            if(length(quant)>0){
+              tmp2<-c(tmp2,quant[1])
+              quant<-setdiff(quant,quant[1])
+            }
+          }else{
+            if(length(qual)>0){
+              assign_qual<-qual[1]
+              if(assign_qual == "shape"){
+                if(as.numeric(gsub("qual-","",var_info[j,]$feild_detail))<6){
+                  tmp2<-c(tmp2,assign_qual)
+                  qual<-setdiff(qual,qual[1])
+                } 
+              }else{
+                tmp2<-c(tmp2,assign_qual)
+                qual<-setdiff(qual,qual[1])
+              }
+              
+            }
+          }
+        } #end of j for loop
+        
+        var_info$aes_assign<-tmp2
+        
+        #single chart specs
+        chart_spec<-list(data = single_chart$dataSource,
+             chartType = single_chart$dataType,
+             aes = var_info[,c("dataID","dataSource","aes_assign")])
+        
+        single_specs[[single_chart$dataSource]]<-chart_spec
+      }
+      
+      allSpecs[[spec_idx]]<-list(single_chart_specs=single_specs,
+                          combo = list(
+                            data = names(single_specs),
+                            full_link = unique(chart_specs$full_linkage),
+                            partial_link = unique(chart_specs$partial_linkage)
+                          )
+                          )
+      spec_idx <- spec_idx + 1
     }
-   
   }
+  
+  return(allSpecs)
+
 }

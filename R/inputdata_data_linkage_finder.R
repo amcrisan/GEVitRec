@@ -46,48 +46,47 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   
   itemName<-as.character(objMeta[tabIndex,"dataID"])
   
-  #scan for categories: continuous, categorgical, interval
-  #if there's no special data in the column (i.e. lat/long cord)
+  #scan for categories:
   #then, wait for user input to decide whether to show one variable, or multiple variables
   tableInfo<-data.frame(tableSource = rep(itemName,ncol(itemData)),
                         variable = colnames(itemData),
-                        class = sapply(itemData, typeof),
+                        class = sapply(itemData, class),
                         stringsAsFactors = FALSE)
   
   #scan for special column types (spatial, genomic, dates)
   #universal data dictionary a standard, users can add other data dictionaries
   
-  #scan and apply to special table
-  tableInfo$specialClass<-apply(tableInfo,1,function(x,dict){
-    #exact match so can have more variability here
-    data_term <- trimws(x[["variable"]])
-    
-    idxDict<-which(dict$term %in% data_term)
-    category <- NA
-    
-    #If there's no match...
-    if(length(idxDict)<1)
-      return(category)
-    
-    #If there's a match....
-    if(length(idxDict)>1){
-      tmp<-table(dict[idxDict,]$category)
-      tmp<-tmp/sum(tmp)
-      
-      # if there are multiple matches and
-      # if any category breaks 50% return that
-      # note: conservative route is to return NA
-      tmp<-sort(tmp,decreasing = TRUE)
-      
-      if(tmp[1]>0.5){
-        category<-names(tmp)[1]
-      }
-    }else{
-      category<-dict[idxDict,]$category
-    }
-    return(category)
-  },
-  dict=dataDict) #Note to self: I like passing then second variable rather than just hoping its correctly scoped.
+  # #scan and apply to special table
+  # tableInfo$specialClass<-apply(tableInfo,1,function(x,dict){
+  #   #exact match so can have more variability here
+  #   data_term <- trimws(x[["variable"]])
+  #   
+  #   idxDict<-which(dict$term %in% data_term)
+  #   category <- NA
+  #   
+  #   #If there's no match...
+  #   if(length(idxDict)<1)
+  #     return(category)
+  #   
+  #   #If there's a match....
+  #   if(length(idxDict)>1){
+  #     tmp<-table(dict[idxDict,]$category)
+  #     tmp<-tmp/sum(tmp)
+  #     
+  #     # if there are multiple matches and
+  #     # if any category breaks 50% return that
+  #     # note: conservative route is to return NA
+  #     tmp<-sort(tmp,decreasing = TRUE)
+  #     
+  #     if(tmp[1]>0.5){
+  #       category<-names(tmp)[1]
+  #     }
+  #   }else{
+  #     category<-dict[idxDict,]$category
+  #   }
+  #   return(category)
+  # },
+  # dict=dataDict) #Note to self: I like passing then second variable rather than just hoping its correctly scoped.
   
   return(tableInfo)
 }
@@ -198,6 +197,8 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
   if(length(allObj) < 2)
     return(NULL)
   
+  noQuantMeta<-dplyr::filter(allObjMeta,is.na(feild_detail) | grepl("qual",feild_detail))
+  
   #list all pairwise combinations
   combos<-combn(1:length(allObj),m=2)
   
@@ -207,20 +208,20 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
     combo<-combos[,i]
     
     #get standard information out
-    item_one<-returnItemData(combo[1],allObj,allObjMeta)
-    item_two<-returnItemData(combo[2],allObj,allObjMeta)
+    item_one<-returnItemData(combo[1],allObj,noQuantMeta)
+    item_two<-returnItemData(combo[2],allObj,noQuantMeta)
     
     #get names to be passed to other functions
-    item_one_name = as.character(allObjMeta[combo[1],"dataID"])
-    item_two_name = as.character(allObjMeta[combo[2],"dataID"])
+    item_one_name = as.character(noQuantMeta[combo[1],"dataID"])
+    item_two_name = as.character(noQuantMeta[combo[2],"dataID"])
     
     #check if non-tabular objects "exploded feilds" better to link on that
-    if(item_one_name %in% allObjMeta$dataSource & as.character(allObjMeta[combo[1],"dataType"])!="table"){
-      returnItemData(combo[1],allObj,allObjMeta,TRUE)
+    if(item_one_name %in% noQuantMeta$dataSource & as.character(noQuantMeta[combo[1],"dataType"])!="table"){
+      returnItemData(combo[1],allObj,noQuantMeta,TRUE)
     }
     
-    if(item_two_name %in% allObjMeta$dataSource & as.character(allObjMeta[combo[2],"dataType"])!="table"){
-      item_two<-returnItemData(combo[2],allObj,allObjMeta,TRUE)
+    if(item_two_name %in% noQuantMeta$dataSource & as.character(noQuantMeta[combo[2],"dataType"])!="table"){
+      item_two<-returnItemData(combo[2],allObj,noQuantMeta,TRUE)
     }
   
     #check whether there are any linkages between these data items

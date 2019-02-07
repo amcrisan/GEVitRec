@@ -1,6 +1,48 @@
 
 #' Title
 #'
+#' @param feild 
+#' @param feild_type 
+#' @param datSource 
+#' @param obj 
+#' @param meta 
+#'
+#' @return
+#'
+#' @examples
+get_feild_details<-function(feild = NULL,feild_type = NULL,datSource = NULL,obj=NULL,meta){
+  
+  if(any(c("numeric","integer","Date") %in% feild_type)){return("quant")}
+  
+  dat_tmp<-NULL
+  index<-which(meta$dataID == datSource)
+  
+  if(grepl("table",datSource)){
+    dat_tmp<-obj[[index]]@data[[1]]
+    dat_tmp<-dat_tmp[,feild]
+  }else if (!is.null(obj[[index]]@data$metadata)){
+    if(grepl("gevitID",feild)){
+      dat_tmp<-returnItemData(index,obj,meta)
+    }else{
+      dat_tmp<-obj[[index]]@data$metadata
+      dat_tmp<-dat_tmp[,feild]
+    }
+  }else{
+    dat_tmp<-returnItemData(index,obj,meta)
+  }
+  
+  if(is.null(dat_tmp)){return("ERROR!")}
+  
+  var<-unique(dat_tmp)
+  if(length(var)>12){
+    return("qual-many")
+  }else{
+    return(paste("qual",length(var),sep="-"))
+  }
+}
+
+#' Title
+#'
 #' @param ... 
 #' @param dataDict 
 #' @import igraph
@@ -27,20 +69,37 @@ data_harmonization<-function(...,dataDict=NULL){
   allObjMeta<-data.frame(dataID = sapply(allObj,function(x){x@id}),
                          dataType= sapply(allObj,function(x){x@type}),
                          dataSource = sapply(allObj,function(x){x@source}),
-                         dataEntity = rep("dataType",length(allObj)))
+                         dataEntity = rep("dataType",length(allObj)),
+                         stringsAsFactors = FALSE)
   
   #-------- EXPLODE DATA ------------------
   # Explode feilds from tables and data types store them in metadata table
   #load necessary data dictionary
   tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
   
-  #add exploded feilds to data type
+  #add exploded table feilds to data type
   tabScanned<-data.frame(dataID=tabScanned$variable,
                          dataType= tabScanned$class,
                          dataSource = tabScanned$tableSource,
-                         dataEntity = rep("feild",nrow(tabScanned)))
+                         dataEntity = rep("feild",nrow(tabScanned)),
+                         stringsAsFactors = FALSE)
   
   allObjMeta<-rbind(allObjMeta,tabScanned)
+  
+  # Add some more feild details to the data
+  allObjMeta$feild_detail<-sapply(objMeta$dataID,function(var,obj,objMeta){
+    tmp<-dplyr::filter(objMeta,dataID == var)
+    if(tmp$dataEntity == "dataType"){
+      return(NA)
+    }
+    
+    tmp<-get_feild_details(feild = tmp$dataID,
+                           feild_type = tmp$dataType,
+                           datSource = tmp$dataSource,
+                           obj = obj,
+                           meta = objMeta)  
+  },obj = allObj, objMeta =  allObjMeta) %>% unname()
+  
   
   
   #-------- FIND DATA LINKAGES ------------------

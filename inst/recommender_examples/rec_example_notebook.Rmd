@@ -5,11 +5,10 @@ date: '2019-02-01'
 output: html_document
 ---
 
+devtools::load_all() #temporary once things are done
 
 ## Loading data
 ```{r}
-devtools::load_all() #temporary once things are done
-
 #Table data
 tab_dat<-input_data(file = system.file("./inst/extdata/", "ebov_metadata.csv", package = "epivis"),dataType = "table")
 
@@ -30,10 +29,6 @@ sle_shape_dat<-input_data(file = system.file("./inst/extdata/", "sle_admbnda_adm
 ## Data Harmonization
 ```{r}
 harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,gin_shape_dat,lbr_shape_dat,sle_shape_dat)
-```
-
-It's possible to view the entityt graph of how all of the data sources are linked together
-```{r}
 view_entity_graph(harmon_obj[["entityGraph"]])
 ```
 
@@ -54,5 +49,5 @@ tmp<-get_spec_list(harmon_obj)
 harmon_obj_sub<-harmon_obj
 harmon_obj_sub[["entityGraph"]]<-subset_graph(harmon_obj_sub[["entityGraph"]],1)
 tmp<-get_spec_list(harmon_obj_sub,usrChoices = c("country","year"))
-clean_up_spec(tmp)
+tmp2<-clean_up_spec(tmp)
 ```

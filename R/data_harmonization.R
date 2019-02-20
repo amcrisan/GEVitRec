@@ -87,7 +87,7 @@ data_harmonization<-function(...,dataDict=NULL){
   allObjMeta<-rbind(allObjMeta,tabScanned)
   
   # Add some more feild details to the data
-  allObjMeta$feild_detail<-sapply(objMeta$dataID,function(var,obj,objMeta){
+  allObjMeta$feild_detail<-sapply(allObjMeta$dataID,function(var,obj,objMeta){
     tmp<-dplyr::filter(objMeta,dataID == var)
     if(tmp$dataEntity == "dataType"){
       return(NA)

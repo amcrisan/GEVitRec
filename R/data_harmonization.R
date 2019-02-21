@@ -1,5 +1,5 @@
 
-#' Title
+#' Data harmonization
 #'
 #' @param feild 
 #' @param feild_type 
@@ -57,9 +57,9 @@ data_harmonization<-function(...,dataDict=NULL){
   allObj<-list(...)
   
   #use internal data dictionary if none is provided
-  if(is.null(dataDict)){
-   dataDict = readxl::read_xlsx(system.file("inst/epivis_shiny/data_dictionaries/", "universal_data_dictionary.xlsx", package = "epivis"))
-  }
+  # if(is.null(dataDict)){
+  #  dataDict = readxl::read_xlsx(system.file("inst/epivis_shiny/data_dictionaries/", "universal_data_dictionary.xlsx", package = "epivis"))
+  # }
   
   #name list object after the ids
   #TO DO: throw error if its not a gevitObject

@@ -9,21 +9,24 @@ devtools::load_all() #temporary once things are done
 
 ## Loading data
 ```{r}
+library(mincombinr) # for displaying the resulting and loading the data
+devtools::load_all() #loading gevitrec
+
 #Table data
-tab_dat<-input_data(file = system.file("./inst/extdata/", "ebov_metadata.csv", package = "epivis"),dataType = "table")
+tab_dat<-input_data(file = system.file("./inst/extdata/", "ebov_metadata.csv", package = "gevitRec"),dataType = "table")
 
 #Tree data
-tree_dat<-input_data(file = system.file("./inst/extdata/", "ebov_tree.nwk", package = "epivis"),dataType = "tree")
+tree_dat<-input_data(file = system.file("./inst/extdata/", "ebov_tree.nwk", package = "gevitRec"),dataType = "tree")
 
 #Genomic data
-genomic_dat<-input_data(file = system.file("./inst/extdata/", "ebov_GIN_genomic.fasta", package = "epivis"),dataType = "dna")
+genomic_dat<-input_data(file = system.file("./inst/extdata/", "ebov_GIN_genomic.fasta", package = "gevitRec"),dataType = "dna")
 
 #Shape files
 #Shape files require that .shp,.shx,and .prj files at a minimun to be in the same directory
 #to add metadata to the shape file, you can also add .dbf files
-gin_shape_dat<-input_data(file = system.file("./inst/extdata/", "gin_admbnda_adm1_ocha_itos.shp", package = "epivis"),dataType = "spatial")
-lbr_shape_dat<-input_data(file = system.file("./inst/extdata/", "lbr_admbnda_adm1_ocha.shp", package = "epivis"),dataType = "spatial")
-sle_shape_dat<-input_data(file = system.file("./inst/extdata/", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp",package = "epivis"),dataType = "spatial")
+gin_shape_dat<-input_data(file = system.file("./inst/extdata/", "gin_admbnda_adm1_ocha_itos.shp", package = "gevitRec"),dataType = "spatial")
+lbr_shape_dat<-input_data(file = system.file("./inst/extdata/", "lbr_admbnda_adm1_ocha.shp", package = "gevitRec"),dataType = "spatial")
+sle_shape_dat<-input_data(file = system.file("./inst/extdata/", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp",package = "gevitRec"),dataType = "spatial")
 ```
 
 ## Data Harmonization
@@ -50,4 +53,5 @@ harmon_obj_sub<-harmon_obj
 harmon_obj_sub[["entityGraph"]]<-subset_graph(harmon_obj_sub[["entityGraph"]],1)
 tmp<-get_spec_list(harmon_obj_sub,usrChoices = c("country","year"))
 tmp2<-clean_up_spec(tmp)
+tmp2
 ```

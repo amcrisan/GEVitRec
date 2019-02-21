@@ -1,150 +1,143 @@
-filter_combo<-function(combos,require_var=NULL){
-  if(is.null(require_var))
-    return(combos)
+get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
+ 
+  # --- Prep input data ----
+  objMeta<-harmon_obj[["dataMeta"]]
+  obj<-harmon_obj[["dataObj"]]
+  entity_graph<-harmon_obj[["entityGraph"]]
   
-  req_present<-apply(combos,2,function(x,req_var){
-    sum(req_var %in% x)
-  },req_var = require_var)
+  edgeList<-dplyr::filter(harmon_obj[["edgeList"]],link_type == "var-var")
+  rev_edge<-cbind(edgeList[,2],edgeList[,1],edgeList[,3:4])
+  names(rev_edge)<-names(edgeList)
+  edgeList<-rbind(edgeList,rev_edge)
   
-  n_req<-nrow(combos) #default for combn output
+  datOnly<-dplyr::filter(objMeta,dataEntity == "dataType")
   
-  if(length(require_var)<n_req){ n_req <-length(require_var)}
+  E(entity_graph)$weight<-1-as.numeric(E(entity_graph)$weights)
   
-  idx_keep<-req_present>=n_req
-  return(combos[,idx_keep])
-}
-
-
-assign_vars<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,n_qual=2){
-  #high_degree vars have priority, because they can
-  #faciliate combinations with other data
-  connect_node<-dplyr::filter(datFeilds, degree>1) %>%
-    dplyr::arrange(desc(degree)) %>%
-    head(5)  
+  entity_graph_table<-as_tibble(entity_graph)
   
-  require_var<-unique(c(require_var,connect_node$name))
+  #fill in those missing variables for the ID
+  entity_graph_table$feild_detail<-apply(entity_graph_table[,1:5],1,function(x,meta,obj){
+    if(!is.na(x[5]))
+      return(x[5])
+    
+    if(x[4] == "dataType")
+      return(NA)
+    
+    get_feild_details(feild = x[1],
+                      feild_type = x[2],
+                      datSource = x[3],
+                      obj = obj,
+                      meta = meta)
+  },meta = objMeta,obj=obj)
   
-  quant<-dplyr::filter(datFeilds,feild_detail %in% c("quant","qual-many"))
-  qual<-dplyr::filter(datFeilds,!(feild_detail %in% c("quant","qual-many")))
+  # --- Identify graph components, build specs for each ----
+  #number of data types per component
+  component_info<- entity_graph_table %>%
+    dplyr::filter(dataEntity == "dataType") %>%
+    dplyr::group_by(component) %>%
+    dplyr::count() %>%
+    dplyr::arrange(desc(n))
   
-  quant_require<- if (!is.null(require_var)) intersect(quant$name,require_var) else NULL
-  qual_require<- if (!is.null(require_var)) intersect(qual$name,require_var) else NULL
+  spec_list_all<-c()
+  path_list<-c()
   
-  #a bit exaggerated because it doesn't take require variales into account
-  n_combos<- choose(length(qual),n_qual) * choose(length(qual),n_quant)
-  
-  #and goo..
-  if(n_combos>1000){
-    stop("Haven't implemented this yet")
-  }
-  
-  combo_quant<-filter_combo(combn(quant$name,m=n_quant),require_var = quant_require)
-  combo_qual<-filter_combo(combn(qual$name,m=n_qual),require_var = qual_require)
-  
-  #generate specifications
-  use_quant<-check_status(combo_quant)
-  use_qual<-check_status(combo_qual)
-  
-
-  spec_list<-NULL
-  if(use_quant & use_qual){
-    spec_list<-join_combos(combo_quant,combo_qual,n_quant,n_qual)
-  }else if(use_quant){
-    spec_list<-single_specs(combo_quant,"quant")
-  }else if(use_qual){
-    spec_list<-single_specs(combo_qual,"qual")
-  }
-  
-  return(spec_list)
-}
-
-check_status<-function(combo_val){
-  use_combo<-FALSE
-  if(is.null(dim(combo_val))){
-    if(length(combo_val)>0){
-      use_combo<-TRUE
+  for(comp in component_info$component){
+    comp_info<-dplyr::filter(component_info,component == comp)
+    
+    #get all of the data in that component
+    comp_data<-dplyr::filter(entity_graph_table,dataEntity=="dataType") %>%
+      dplyr::filter(component == comp)
+    
+    if(nrow(comp_data)){
+      print("Single Data Item")
+      next()
     }
-  }else{
-    use_combo<-TRUE
-  }
-  return(use_combo)
-}
-
-single_specs<-function(combo_one,combo_type=NULL){
-  if(is.null(nrow(combo_one))){
-
-    if(combo_type == "quant"){
-      vec_val<-rep(NA,3)
-      vec_val[1:length(combo_one)]<-combo_one
-      vec_val<-c(vec_val,NA,NA)
-    }else{
-      vec_val<-rep(NA,2)
-      vec_val[1:length(combo_one)]<-combo_one
-      vec_val<-c(NA,NA,NA,vec_val)
+    
+    #Find paths between variables as these are essentially
+    #seeds for the specifications
+    dats<-as.numeric(V(entity_graph)[as.character(comp_data$name)])
+    all_paths<-list()
+    for(source in dats){
+      # DEV NOTE:
+      #all shortest paths seems to have some randomness to it that is not
+      #stable. Better to use all simple paths and do the rank here.
+      dat_paths<-igraph::all_simple_paths(entity_graph,from=source,to=setdiff(dats,source))
+      all_paths<-append(all_pths,dat_paths)
     }
-    return(vec_val)
-  }else{
-    if(combo_type == "quant"){
-      spec_val<-rbind(combo_one,
-                       rep(NA,ncol(combo_one)),
-                       rep(NA,ncol(combo_one)))
-    }else{
-      spec_val<-rbind(rep(NA,ncol(combo_one)),
-                       rep(NA,ncol(combo_one)),
-                       rep(NA,ncol(combo_one)),
-                       combo_one)
+    
+    #rank these paths
+    rank_summary<-rank_paths(all_paths,entity_graph)
+    #arbitrarily, keep the top ten paths
+    max_vis<-20
+    if(nrow(rank_summary$path_rank)<20){
+      max_vis<-nrow(rank_summary$path_rank)
     }
-    return(t(spec_val))
-  }
-  
-}
-
-join_combos<-function(combo_one,combo_two,n_combo_one,n_combo_two){
-  #TO DO: Address the situation where  one combo is only a vector
-  #tmp1<-combo_one
-  #tmp2<-combo_two
-  
-  combo_one<-as.matrix(t(combo_one),ncol=3)
-  combo_two<-as.matrix(t(combo_two),ncol=2)
-  
-  spec_list<-c()
-  for(i in 1:nrow(combo_one)){
-    x<-combo_one[i,]
-    for(j in 1:nrow(combo_two)){
-      y<-combo_two[j,]
-      quant_vec<-rep(NA,3)
-      qual_vec<-rep(NA,2)
+    
+    #higher scores are favourable
+    path_keep<-order(rank_summary$summary_rank,decreasing = TRUE)[1:max_vis]
+    
+    # --- Generate specifications ----
+    for(idx in path_keep){
+      path_var<-as_ids(all_paths[[idx]])
       
-      if(length(x)>0){quant_vec[1:length(x)]<-x}
-      if(length(y)>0){qual_vec[1:length(y)]<-y}
-      spec<-c(quant_vec,qual_vec)
-      spec_list<-rbind(spec_list,spec)
+      #all the data types in that path
+      dats<-dplyr::filter(datOnly,dataID %in% gsub("_gevitID","",path_var))
+      
+      #all possible variables associated with that data type
+      vars<-dplyr::filter(entity_graph_table,dataSource %in% as.character(dats$dataID)) %>% 
+        dplyr::filter(dataEntity == "feild")
+      
+      #variables that must appear because they are
+      #are on the 'critical path' or because the user
+      #has specificed them
+      required_var<-path_var[path_var %in% vars$name]
+      
+      if(!is.null(usrChoices)){
+        required_var<-c(required_var,usrChoices)
+      }
+      
+      #Now create some specifications:
+      #each data source can produce one or more charts
+      #and the seed specifications for these charts
+      #are based upon the require specifications
+      
+      for(dat in dats){
+        vis_feilds<-dplyr::filter(vars,dataSource == dat)
+        dat_type<-dplyr::filter(dats,dataID == dat)$dataType
+        
+        required_tmp<-intersect(required_var,vis_feilds$name)
+        
+        if(dat == "table"){
+          print("No positions assigned")
+          chart_type<-get_tab_charts(vis_feilds,required_tmp)
+        }else{
+          print("Positions assigned")
+          chart_type<-get_nontab_charts(dat_type)
+        }
+      }
+      
+      
     }
   }
-  
-  return(unname(spec_list))
-  # Apply doesn't work great when combo_one or combo_two is literally just one
-  # row, so this is a better solution
-  # apply(combo_one,1,function(x,combo_two,n_combo_one,n_combo_two){
-  #   print("yay!")
-  #   spec<-apply(combo_two,1,function(y,x,n_combo_one,n_combo_two){
-  #     quant_vec<-rep(NA,3)
-  #     qual_vec<-rep(NA,2)
-  # 
-  #     if(length(x)>0){quant_vec[1:length(x)]<-x}
-  #     if(length(y)>0){qual_vec[1:length(y)]<-y}
-  # 
-  #     spec<-c(quant_vec,qual_vec)
-  #     list(spec)
-  #   },x = x,n_combo_one= n_combo_one,n_combo_two = n_combo_two)
-  #   spec<-unlist(spec,recursive = FALSE)
-  # },combo_two=combo_two,n_combo_one= n_combo_one,n_combo_two = n_combo_two) %>%
-  #   lapply(.,function(x){
-  #     do.call(rbind,x)
-  #   }) %>% do.call(rbind,.)
 }
 
-get_spec_list<-function(harmon_obj=NULL,usrChoices = NULL){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
 
   # --- Prep input data ----
   objMeta<-harmon_obj[["dataMeta"]]

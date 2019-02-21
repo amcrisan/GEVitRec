@@ -1,4 +1,4 @@
-rank_paths<-function(dat_paths=NULL,entity_graph=NULL){ 
+rank_paths<-function(dat_paths=NULL,entity_graph=NULL,datOnly=NULL){ 
   path_rank<-sapply(dat_paths,function(path_val,entity_graph){
     VP = as.numeric(path_val)
     EP = rep(VP, each=2)[-1]

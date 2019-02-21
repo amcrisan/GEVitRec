@@ -1,7 +1,6 @@
-
 #tries a bunch of charts, uses those that are possible, removes those that are not
 #also provides three scores : total feilds assigned, relevance, and perceptual rank (from showME)
-get_charts_specs<-function(vis_feilds=NULL,required_var=NULL){
+get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL){
 
   quant_feilds<-dplyr::filter(vis_feilds,feild_detail  == "quant")
   qual_feilds<-dplyr::filter(vis_feilds,grepl("qual",feild_detail))
@@ -10,12 +9,32 @@ get_charts_specs<-function(vis_feilds=NULL,required_var=NULL){
   all_chart_specs<-c()
   chart_count<-1
   channel_feilds<-c("x","y","color","shape","alpha")
-  
-for(chart_type in names(chart_required_specs)){
+  #Go through each of the possible charts
+  #assess if it is possible to 
+  for(chart_type in names(chart_required_specs)){
     chart_req<-chart_required_specs[[chart_type]]
     
+    #check that the data source of the of the feilds
+    #is actually compatible with that chart type
+    if(dat_type != chart_req$data$datType) next
+    
+    #now fill in those potential charts
     quant_possible<-quant_feilds$name
     qual_possible<-qual_feilds$name
+    
+    if(length(c(quant_possible,qual_possible)) == 0){
+      if(dat_type != "table"){
+        #non-tabular data will already have positional variables assigned
+        #so go-ahead and use that chart!
+        score_idx<- grep(chart_type,tolower(chart_scores$chartType))
+        relevance<-if(length(score_idx) ==0) NA else chart_scores[score_idx, ]$rescale
+        
+        all_chart_specs[[chart_count]]<-list(spec = chart_req,
+                                             feilds_total = 0,
+                                             relvance = relevance)
+        next
+      }
+    } 
     
     param_idx<-which(names(chart_req) %in% channel_feilds)
     param_names<-names(chart_req)

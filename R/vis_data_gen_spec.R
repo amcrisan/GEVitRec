@@ -48,8 +48,7 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
     #get all of the data in that component
     comp_data<-dplyr::filter(entity_graph_table,dataEntity=="dataType") %>%
       dplyr::filter(component == comp)
-    
-    if(nrow(comp_data)){
+    if(nrow(comp_data)==1){
       print("Single Data Item")
       next()
     }
@@ -63,11 +62,11 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
       #all shortest paths seems to have some randomness to it that is not
       #stable. Better to use all simple paths and do the rank here.
       dat_paths<-igraph::all_simple_paths(entity_graph,from=source,to=setdiff(dats,source))
-      all_paths<-append(all_pths,dat_paths)
+      all_paths<-append(all_paths,dat_paths)
     }
     
     #rank these paths
-    rank_summary<-rank_paths(all_paths,entity_graph)
+    rank_summary<-rank_paths(all_paths,entity_graph,datOnly)
     #arbitrarily, keep the top ten paths
     max_vis<-20
     if(nrow(rank_summary$path_rank)<20){
@@ -101,22 +100,8 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
       #each data source can produce one or more charts
       #and the seed specifications for these charts
       #are based upon the require specifications
-      
-      for(dat in dats){
-        vis_feilds<-dplyr::filter(vars,dataSource == dat)
-        dat_type<-dplyr::filter(dats,dataID == dat)$dataType
-        
-        required_tmp<-intersect(required_var,vis_feilds$name)
-        
-        if(dat == "table"){
-          print("No positions assigned")
-          chart_type<-get_tab_charts(vis_feilds,required_tmp)
-        }else{
-          print("Positions assigned")
-          chart_type<-get_nontab_charts(dat_type)
-        }
-      }
-      
+      browser()
+      all_path_specs<-get_all_chart_specs(vars,dats,required_var)
       
     }
   }
@@ -125,7 +110,31 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
 
 
 
+get_all_chart_specs<-function(vars=NULL,dats=NULL,required_var=NULL){
 
+  all_specs<-c()
+
+  for(dat in dats$dataID){
+    print(dat)
+    vis_feilds<-dplyr::filter(vars,dataSource == dat)
+    dat_type<-dplyr::filter(dats,dataID == dat)$dataType
+    
+    #the required variables *within this specific dataset
+    required_tmp<-intersect(required_var,vis_feilds$name)
+    
+    if(dat == "table"){
+      chart_specs<-get_charts_specs(vis_feilds,required_tmp,dat_type)
+      all_specs[[dat]]<-chart_specs
+    }else{
+      #remove ID objects
+      vis_feilds<-dplyr::filter(vis_feilds,!grepl("_gevitID",name))
+      chart_specs<-get_charts_specs(vis_feilds,required_tmp,dat_type)
+      all_specs[[dat]]<-chart_specs
+    }
+  }
+  
+  return(all_specs)
+}
 
 
 

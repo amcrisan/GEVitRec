@@ -9,14 +9,15 @@ randID <- function(n = 1) {
 #' Input Data
 #'
 #' Generic input function for inputing data, helper functions are in the back
-#' 
-#' @param file 
-#' @param dataType 
-#' @param asObj 
-#' @param desc 
-#' @param ... 
+#'
+#' @param file
+#' @param dataType
+#' @param asObj
+#' @param desc
+#' @param ...
 #'
 #' @import dplyr
+#' @export
 #' @return
 input_data<-function(file  = NA, dataType = NA, asObj=TRUE,desc = NA,...){
   #Only supports specific data types
@@ -174,12 +175,12 @@ input_vcf<-function(file=NA,asObj=TRUE,filter=NA,...){
   
   #rename the sampleID
   splitChar<-ifelse(stringr::str_detect(file,".vcf.gz"),"\\.vcf\\.gz","\\.vcf")
-  tmp<-tmp %>% 
+  tmp<-tmp %>%
     group_by(SAMPID) %>%
     mutate(SAMPMOD=unlist(str_split(SAMPID,splitChar))[[1]]) %>%
     mutate(CHROMPOS = paste(CHROM,POS,sep=":")) %>%
     ungroup()
-    
+  
   #reference sequence for each position
   refSeq<-dplyr::select(tmp,CHROMPOS,REF) %>% distinct()
   
@@ -208,12 +209,12 @@ prepGenomics<-function(fileDIR=NULL,filetype = NULL){
     if(file.exists(sprintf("%s/epiDRIVE_allTogether.vcf",fileDIR))){
       file.remove(sprintf("%s/epiDRIVE_allTogether.vcf",fileDIR))
     }
-   system(sprintf("awk '{print FILENAME,$0}' %s/*.vcf | grep -v '#' | cat > %s/epiDRIVE_allTogether.vcf",fileDIR,fileDIR))
+    system(sprintf("awk '{print FILENAME,$0}' %s/*.vcf | grep -v '#' | cat > %s/epiDRIVE_allTogether.vcf",fileDIR,fileDIR))
   }
 }
 
 #***********************************************
-# Input fasta files that are zipped or otherwise 
+# Input fasta files that are zipped or otherwise
 #
 input_fasta<-function(file=NA,...){
   if(stringr::str_detect(file,".fasta.gz$")){
@@ -254,12 +255,73 @@ input_spatial<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
                 type = "spatial",
                 source = file,
                 data = list(geometry=sfc_info,
-                metadata = sfc_meta))
+                            metadata = sfc_meta))
     return(objDat)
   }else{
     return(nc)
   }
 }
+
+#Helper function to join spatial file
+
+join_spatial_data<-function(...,obj_names = NULL){
+  
+  spatial_obj<-list(...)
+  
+  #spatial object variables
+  dataID<-paste("spatial",randID(),sep="_")
+  
+  geo_data<-c()
+  geo_metadata<-c()
+  
+  for(idx in 1:length(spatial_obj)){
+    
+    obj<-spatial_obj[[idx]]
+    
+    if(obj@type !="spatial") next
+    
+    geo_tmp<-obj@data$geometry
+    geo_meta_tmp<-if(!is.null(obj@data$metadata)) obj@data$metadata else NULL
+    
+    item_id<- ifelse(is.null(obj_names),obj@id,obj_names[idx])
+    
+    ##DEV NOTE: Assumes shape file only has geometry column
+    # When read in as a shape file
+    #adding to the geometry item
+    geo_tmp_col<-colnames(geo_tmp)
+    
+    if(length(geo_tmp_col)>1){
+      warning("This method assumes that your shape file data only contains geometry information. Strange sideffects may ensue.")
+    }
+    
+    geo_tmp<-cbind(rep(item_id,times = nrow(geo_tmp)),geo_tmp)
+    colnames(geo_tmp)<- c("minID",geo_tmp_col)
+    
+    geo_data<-rbind(geo_data,geo_tmp)
+    
+    #adding to metadata item
+    if(is.null(geo_meta_tmp) | all(is.na(geo_meta_tmp))) next
+    
+    geo_meta_col<-colnames(geo_meta_tmp)
+    geo_meta_tmp<-cbind(rep(item_id,times = nrow(geo_tmp)),geo_meta_tmp)
+    
+    #TO DO: This is not a safe action...
+    #But if everything is different, the user needs to suss it out
+    #Build a warning message in
+    geo_metadata<-rbind(geo_metadata,geo_meta_tmp)
+    colnames(geo_metadata)<-c("minID",geo_meta_col)
+  }
+  
+  source_info<-sapply(spatial_obj,function(x){x@id})
+  objDat<-new("gevitDataObj",
+              id  = dataID,
+              type = "spatial",
+              source = paste(source_info,collapse =";"),
+              data = list(geometry=geo_data,
+                          metadata = geo_metadata))
+  return(objDat)
+}
+
 
 #***************************************************************
 # INPUT PHYLOGENETIC TREE DATA
@@ -348,15 +410,7 @@ input_image<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
   img<-magick::image_resize(img, "1000x1000")
   
   #get details for later
-  imgDetails<-capture.output(img)
-  
-  #cleaning up the image details
-  imgDetails<-data.frame(headerInfo= factor(c("img",unlist(strsplit(trimws(imgDetails[1]),"\\s+")))),
-                         values = c(file,unlist(strsplit(trimws(imgDetails[2]),"\\s+"))[-1]))
-  
-  imgDetails<-tidyr::spread(imgDetails,headerInfo,values)
-  imgDetails$width<-as.numeric(as.character(imgDetails$width))
-  imgDetails$height<-as.numeric(as.character(imgDetails$height))
+  imgDetails<-magick::image_info(img)
   
   #just return the image
   warning("To use this image, please be sure to have separate file that links the image to data in pixel space. If you would like to CREATE an annotation file, run the 'annotate_image' command.")
@@ -366,28 +420,28 @@ input_image<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
                 id  = paste("image",dataID,sep="_"),
                 type = "image",
                 source = file,
-                data = list(img=img,imgDetails = imgDetails)
+                data = list(data=img,imgDetails = imgDetails,metadata = NULL)
     )
     
     return(objDat)
   }else{
-    return(list(img=img,imgDetails = imgDetails))
+    return(list(data=img,imgDetails = imgDetails,metadata=NULL))
   }
 }
 
 #helper method to annotate FEATURES within an image
 #'@export
-annotate_image<-function(img = NULL,imgDetails=NULL,outfile = NULL){
+annotate_image<-function(img = NULL,imgDetails=NULL,outfile = NULL,overwrite_meta=FALSE){
   # If user does not provide a file name, make one up
   if(is.null(outfile)){
     outfile="annotated_image_file.csv"
   }
   
   if(class(img) == "gevitDataObj"){
-    annote_dat<-runApp(annotate_app(img@data$img,img@data$imgDetails))
+    annote_dat<-runApp(annotate_app(img@data$data,img@data$imgDetails))
     #
   }else{
-    annote_dat<-runApp(annotate_image_app(img,imgDetails))
+    annote_dat<-shiny::runApp(annotate_image_app(img,imgDetails))
   }
   #cleaning up the annotatation data
   annote_dat<-data.frame(elemID =annote_dat[,1],
@@ -400,17 +454,22 @@ annotate_image<-function(img = NULL,imgDetails=NULL,outfile = NULL){
                          stringsAsFactors = FALSE)
   
   if(class(img) == "gevitDataObj"){
-    img@data$annotate<-annote_dat
+    if(!is.null(img@data$metadata) & !overwrite_meta){
+      # ------- TO DO: IF IT CAN'T RBIND ..then ... DIE GRACEFULLY # -------
+      #if there's existing metadata, add to it, don't overwrite it
+      annote_dat<-rbind(img@data$metadata,annote_dat)
+    }
+    
+    img@data$metadata<-annote_dat
     return(img)
   }else{
     return(annote_dat)
   }
-  
 }
 
 #***************************************************************
 # INPUT R DATA
-# Essentially, input any data that is outputted by R. 
+# Essentially, input any data that is outputted by R.
 # There are specific object files that are loaded
 #***************************************************************
 input_rdata<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
@@ -434,25 +493,25 @@ input_rdata<-function(file=NA,asObj=TRUE,dataID=NA,desc=NA,...){
     #give it a unique dataID
     #support specific types - not everything, otherwise that's a nightmare
     tmpClass<-switch(tmpClass,
-           "phylo" = "tree",
-           "data.frame" = "table",
-           "igraph" = "nodeLink",
-           "hclust" = "tree",
-           NULL)
+                     "phylo" = "tree",
+                     "data.frame" = "table",
+                     "igraph" = "nodeLink",
+                     "hclust" = "tree",
+                     NULL)
     
     if(is.null(tmpClass)){
       warning(sprintf("'%s' not loaded - the '%s' data type is currently not supported by epiDRIVE",class(tmp),objName[i]))
     }
-      
+    
     
     #converting objects into the gevitObject so that it can be used
     #with the rest of the analysis
     
     tmp<-new("gevitDataObj",
-                id  = paste(tmpClass,dataID,sep="_"),
-                type = tmpClass,
-                source = file,
-                data = list(data = tmp)
+             id  = paste(tmpClass,dataID,sep="_"),
+             type = tmpClass,
+             source = file,
+             data = list(data = tmp)
     )
     
     #reassign the environment variable to the gevit object

@@ -26,12 +26,18 @@ genomic_dat<-input_data(file = system.file("./inst/extdata/", "ebov_GIN_genomic.
 #to add metadata to the shape file, you can also add .dbf files
 gin_shape_dat<-input_data(file = system.file("./inst/extdata/", "gin_admbnda_adm1_ocha_itos.shp", package = "gevitRec"),dataType = "spatial")
 lbr_shape_dat<-input_data(file = system.file("./inst/extdata/", "lbr_admbnda_adm1_ocha.shp", package = "gevitRec"),dataType = "spatial")
-sle_shape_dat<-input_data(file = system.file("./inst/extdata/", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp",package = "gevitRec"),dataType = "spatial")
+sle_shape_dat<-input_data(file = system.file("extdata/", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp",package = "gevitRec"),dataType = "spatial")
+```
+
+Modify the spatial objections to that they're more interesting to work with
+```{r}
+#join the spatial files
+all_spatial<-join_spatial_data(gin_shape_dat,lbr_shape_dat,sle_shape_dat,obj_names = c("GIN","LBR","SLE"))
 ```
 
 ## Data Harmonization
 ```{r}
-harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,gin_shape_dat,lbr_shape_dat,sle_shape_dat)
+harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,all_spatial)
 view_entity_graph(harmon_obj[["entityGraph"]])
 ```
 
@@ -46,6 +52,10 @@ With the data harmonized, it is possible to generate specifications for differen
 
 ```{r}
 tmp<-get_spec_list(harmon_obj)
+
+#the messy code to make on figure
+#IT WORKS IT BLOODY WORKS!
+plot(tmp[[1]][[1]][1][[1]])
 ```
 
 ```{r}

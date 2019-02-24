@@ -45,12 +45,14 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   }
   
   itemName<-as.character(objMeta[tabIndex,"dataID"])
+  itemEnvName<-as.character(objMeta[tabIndex,"dataEnvName"])
   
   #scan for categories:
   #then, wait for user input to decide whether to show one variable, or multiple variables
   tableInfo<-data.frame(tableSource = rep(itemName,ncol(itemData)),
                         variable = colnames(itemData),
                         class = sapply(itemData, class),
+                        envName = rep(itemEnvName,ncol(itemData)),
                         stringsAsFactors = FALSE)
   
   #scan for special column types (spatial, genomic, dates)

@@ -122,7 +122,7 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
   }
   
   #clean up the final spec list
-  clean_up_spec(spec_list_all)
+  spec_list_all<-clean_up_spec(spec_list_all)
   
   return(spec_list_all)
 }

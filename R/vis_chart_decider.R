@@ -1,6 +1,6 @@
 #tries a bunch of charts, uses those that are possible, removes those that are not
 #also provides three scores : total feilds assigned, relevance, and perceptual rank (from showME)
-get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL){
+get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL,data_env_name=NULL){
 
   quant_feilds<-dplyr::filter(vis_feilds,feild_detail  == "quant")
   qual_feilds<-dplyr::filter(vis_feilds,grepl("qual",feild_detail))
@@ -13,6 +13,7 @@ get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL){
   #assess if it is possible to 
   for(chart_type in names(chart_required_specs)){
     chart_req<-chart_required_specs[[chart_type]]
+    chart_req$data$datSrc<-data_env_name
     
     #check that the data source of the of the feilds
     #is actually compatible with that chart type

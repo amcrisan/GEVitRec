@@ -13,7 +13,6 @@
 get_feild_details<-function(feild = NULL,feild_type = NULL,datSource = NULL,obj=NULL,meta){
   
   if(any(c("numeric","integer","Date") %in% feild_type)){return("quant")}
-  
   dat_tmp<-NULL
   index<-which(meta$dataID == datSource)
   
@@ -89,8 +88,14 @@ data_harmonization<-function(...,dataDict=NULL){
   allObjMeta<-rbind(allObjMeta,tabScanned)
   
   # Add some more feild details to the data
-  allObjMeta$feild_detail<-sapply(allObjMeta$dataID,function(var,obj,objMeta){
-    tmp<-dplyr::filter(objMeta,dataID == var)
+  detail_tmp<-apply(cbind(allObjMeta$dataID,allObjMeta$dataEnvName),1,function(x){paste(x[1],x[2],sep =";")})
+
+  allObjMeta$feild_detail<-sapply(detail_tmp,function(var,obj,objMeta){
+    var<-strsplit(var,";")[[1]]
+    
+    tmp<-dplyr::filter(objMeta,dataID == var[1]) %>%
+      dplyr::filter(dataEnvName == var[2])
+    
     if(tmp$dataEntity == "dataType"){
       return(NA)
     }

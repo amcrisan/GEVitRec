@@ -90,14 +90,41 @@ clean_up_spec<-function(all_specs = NULL,max_comp_spec=20){
       
       charts<-comp_vis[[idx]]$spec
       #these charts can have 
-      total_charts<-sum(sapply(charts,function(x){length(x)}))
-      #tmp2<-charts[[1]][[1]]$spec
-      #draw vis for the path
-      total_vis[[comp_names[idx]]]<-sapply(charts,function(x){
-        lapply(x,function(y){
-          base_spec<-convert_to_mincombinr(y$spec)
-        })
+  
+      path_vis<-c()
+      for(i in 1:length(charts)){
+        for(j in 1:length(charts[[i]])){
+          path_vis[[paste(i,j,sep="-")]]<-charts[[i]][[j]]
+        }
+      }
+      
+      #hard build in - show how five charts per path
+      #these charts will be shown (for now) in the many
+      #types linked configuration
+      
+      priorities<-sapply(path_vis,function(x){
+        x1<-ifelse(is.na(x$relvance),0,x$relvance)
+        x2<-ifelse(is.na(x$feilds_total) | x$feilds_total ==0,0,x$feilds_total)
+        
+        #weird .. that I had to use sum and that + didn't work
+        return(sum(as.numeric(x1),as.numeric(x2)))
+        
+      }) %>% sort(.,decreasing=TRUE)
+      
+      if(length(priorities) > 5){
+        keep_list<-match(names(priorities[1:5]),names(path_vis))
+        path_vis<-path_vis[keep_list]
+        priorities<-priorities[1:5]
+      }
+      
+      path_vis_single_specs<-lapply(path_vis,function(x){
+        base_spec<-convert_to_mincombinr(x$spec)
       })
+      
+      #store the results, for now, just make a many types general
+      #combo until do a slightly more sophisticated filtering
+      total_vis[[comp_names[idx]]][["single_charts"]]<-path_vis_single_specs
+      total_vis[[comp_names[idx]]][["view_score"]]<-sum(priorities)
     }
   }
   

@@ -35,10 +35,25 @@ Modify the spatial objections to that they're more interesting to work with
 all_spatial<-join_spatial_data(gin_shape_dat,lbr_shape_dat,sle_shape_dat,obj_names = c("GIN","LBR","SLE"))
 ```
 
+
 ## Data Harmonization
 ```{r}
 harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,all_spatial)
 view_entity_graph(harmon_obj[["entityGraph"]])
+```
+
+Now let's change the metadata up a bit, so that the program can link it more directly
+to the tabular data. The code below adds the tabular data site.id variable to the spatial metadata
+this will create more exact linkages.
+
+```{r}
+
+meta_tmp<-data.frame(point_id = tab_dat@data$table$site.id,stringsAsFactors = FALSE)
+all_spatial@data$metadata<-meta_tmp
+
+harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,all_spatial)
+view_entity_graph(harmon_obj[["entityGraph"]])
+
 ```
 
 It's also possible to filter according to the strength of the jaccard distance strength. A strength of 1 means that two variables in different datasets are effectively the same (have set equality), whereas 0 means that they have nothing in common.
@@ -50,18 +65,18 @@ view_entity_graph(subset_graph(harmon_obj[["entityGraph"]],1))
 
 With the data harmonized, it is possible to generate specifications for different charts. It possible to use the whole graph too.
 
+
+** Note there are different recursive depths depending on the degree of connectivity
 ```{r}
-tmp<-get_spec_list(harmon_obj)
+component_specs<-get_spec_list(harmon_obj)
 
 #the messy code to make on figure
 #IT WORKS IT BLOODY WORKS!
-plot(tmp[[1]][[1]][1][[1]])
+plot_view(component_specs,view_num=1)
 ```
 
 ```{r}
 harmon_obj_sub<-harmon_obj
 harmon_obj_sub[["entityGraph"]]<-subset_graph(harmon_obj_sub[["entityGraph"]],1)
 tmp<-get_spec_list(harmon_obj_sub,usrChoices = c("country","year"))
-tmp2<-clean_up_spec(tmp)
-tmp2
 ```

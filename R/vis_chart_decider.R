@@ -1,16 +1,22 @@
 #tries a bunch of charts, uses those that are possible, removes those that are not
 #also provides three scores : total feilds assigned, relevance, and perceptual rank (from showME)
 get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL,data_env_name=NULL){
-
-  quant_feilds<-dplyr::filter(vis_feilds,feild_detail  == "quant")
-  qual_feilds<-dplyr::filter(vis_feilds,grepl("qual",feild_detail))
+  
+  quant_feilds<-dplyr::filter(vis_feilds,feild_detail  == "quant") %>%
+    dplyr::mutate(priority = ifelse(name %in% required_var,1,0))
+  
+  qual_feilds<-dplyr::filter(vis_feilds,grepl("qual",feild_detail)) %>%
+    dplyr::mutate(priority = ifelse(name %in% required_var,1,0))
   
 
   all_chart_specs<-c()
   chart_count<-1
-  channel_feilds<-c("x","y","color","shape","alpha")
+  channel_feilds<-c("x","y","size","color","shape")
   #Go through each of the possible charts
   #assess if it is possible to 
+  
+  #load templates of charts
+  
   for(chart_type in names(chart_required_specs)){
     chart_req<-chart_required_specs[[chart_type]]
     chart_req$data$datSrc<-data_env_name
@@ -20,8 +26,20 @@ get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL,data_
     if(dat_type != chart_req$data$datType) next
     
     #now fill in those potential charts
-    quant_possible<-quant_feilds$name
-    qual_possible<-qual_feilds$name
+    #give required variables priority
+    quant_possible<-dplyr::filter(quant_feilds,priority==1)$name
+    if(length(quant_possible)<3 & nrow(quant_feilds)>3){
+      tmp<-setdiff(quant_feilds$name,quant_possible)
+      quant_possible<-c(quant_possible,sample(tmp,size=3-length(quant_possible),replace=FALSE))
+    }
+    
+    qual_possible<-dplyr::filter(qual_feilds,priority==1)$name
+    
+    if(length(qual_possible)<2 & nrow(quant_feilds)>2){
+      tmp<-setdiff(qual_feilds$name,qual_possible)
+      qual_possible<-c(qual_possible,sample(tmp,size=2-length(qual_possible),replace=FALSE))
+    }
+    
     
     if(length(c(quant_possible,qual_possible)) == 0){
       if(dat_type != "table"){
@@ -37,6 +55,7 @@ get_charts_specs<-function(vis_feilds=NULL,required_var=NULL,dat_type=NULL,data_
       }
     } 
     
+    #Finally, assign those variables to parameters inside charts
     param_idx<-which(names(chart_req) %in% channel_feilds)
     param_names<-names(chart_req)
     

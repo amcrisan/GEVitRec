@@ -18,9 +18,9 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
   entity_graph_table<-as_tibble(entity_graph)
   
   #fill in those missing variables for the ID
-  entity_graph_table$feild_detail<-apply(entity_graph_table[,1:5],1,function(x,meta,obj){
-    if(!is.na(x[5]))
-      return(x[5])
+  entity_graph_table$feild_detail<-apply(entity_graph_table[,1:6],1,function(x,meta,obj){
+    if(!is.na(x[6]))
+      return(x[6])
     
     if(x[4] == "dataType")
       return(NA)

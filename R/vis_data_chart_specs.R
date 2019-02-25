@@ -66,7 +66,6 @@ chart_required_specs[["density_1D"]]<-chart_spec(chart_type = "density_1D",
 chart_required_specs[["bar"]]<-chart_spec(chart_type = "bar",
                      data = data_obj(NA,"table"),
                      x = var_obj(NA,"qual",TRUE),
-                     y = var_obj(NA,"quant",FALSE),
                      color = var_obj(NA,"qual-12",FALSE))
 
 # ---- Line Chart ----
@@ -139,6 +138,11 @@ chart_required_specs[["spatial"]]<-chart_spec(chart_type = "spatial",
 # ---- Alignment ---
 chart_required_specs[["alignment"]]<-chart_spec(chart_type = "alignment",
                                             data = data_obj(NA,"dna"))
+
+# ---- Alignment ---
+chart_required_specs[["choropleth"]]<-chart_spec(chart_type = "choropleth",
+                                                data = data_obj(NA,"spatial"),
+                                                color = var_obj(NA,"qual-12",FALSE))
 
 
 

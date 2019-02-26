@@ -7,7 +7,6 @@ scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   if(is.na(tabIndex)){
     #check which objects are tables
     tabIndex<-which(objMeta$dataType == "table")
-    
     #check which objects have tablular metadata
     metatabs<-which(sapply(objMeta$dataID, function(x,obj){
       x<-obj[[as.character(x)]]

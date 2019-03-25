@@ -12,22 +12,22 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
   names(rev_edge)<-names(edgeList)
   edgeList<-rbind(edgeList,rev_edge)
   
-  datOnly<-dplyr::filter(objMeta,dataEntity == "dataType")
+  datOnly<-dplyr::filter(objMeta,dataEntity == "dataSource")
   
   E(entity_graph)$weight<-1-as.numeric(E(entity_graph)$weights)
   
   entity_graph_table<-as_tibble(entity_graph)
   
   #fill in those missing variables for the ID
-  entity_graph_table$feild_detail<-apply(entity_graph_table[,1:5],1,function(x,meta,obj){
+  entity_graph_table$field_detail<-apply(entity_graph_table[,1:5],1,function(x,meta,obj){
     if(!is.na(x[5]))
       return(x[5])
     
-    if(x[4] == "dataType")
+    if(x[4] == "dataSource")
       return(NA)
     
-    get_feild_details(feild = x[1],
-                      feild_type = x[2],
+    get_field_details(field = x[1],
+                      field_type = x[2],
                       datSource = x[3],
                       obj = obj,
                       meta = meta)
@@ -36,7 +36,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
   # --- Identify graph components, build specs for each ----
   #number of data types per component
   component_info<- entity_graph_table %>%
-    dplyr::filter(dataEntity == "dataType") %>%
+    dplyr::filter(dataEntity == "dataSource") %>%
     dplyr::group_by(component) %>%
     dplyr::count() %>%
     dplyr::arrange(desc(n))
@@ -56,10 +56,10 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
     }
     
     #get the relevant data for each component
-    comp_var<-dplyr::filter(entity_graph_table,dataEntity=="feild") %>%
+    comp_var<-dplyr::filter(entity_graph_table,dataEntity=="field") %>%
       dplyr::filter(component == comp)
     
-    comp_data<-dplyr::filter(entity_graph_table,dataEntity=="dataType") %>%
+    comp_data<-dplyr::filter(entity_graph_table,dataEntity=="dataSource") %>%
       dplyr::filter(component == comp)
     
     #Find paths between variables as these are essential
@@ -82,7 +82,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
       
       #rate the path by the high relevance chart types
       datTypes<-dplyr::filter(datOnly,dataID %in% as_ids(path_val)) %>%
-        dplyr::inner_join(chart_scores,by=c("dataType" = "dataSource")) %>%
+        dplyr::inner_join(chart_scores,by=c("dataSource" = "dataSource")) %>%
         group_by(dataID) %>%
         do(summarise(.,max(rescale)))
       
@@ -109,7 +109,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
       dats<-dplyr::filter(datOnly,dataID %in% gsub("_gevitID","",path_var))
       
       vars<-dplyr::filter(entity_graph_table,dataSource %in% as.character(dats$dataID)) %>% 
-        dplyr::filter(dataEntity == "feild")
+        dplyr::filter(dataEntity == "field")
       
       required<-path_var[path_var %in% vars$name]
       
@@ -124,7 +124,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
         #There is just one thing, there is no metadata at all
         #Then you just return whatever data object is
         chartType<-dplyr::filter(objMeta, dataID == as.character(vars$dataSource[1]))
-        spec_list<-c(comp,NA,as.character(chartType$dataType),as.character(chartType$dataID),rep(NA,5),NA)
+        spec_list<-c(comp,NA,as.character(chartType$dataSource),as.character(chartType$dataID),rep(NA,5),NA)
       }
       
       #create data specifications for individual chart types
@@ -136,7 +136,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
         full_link<-NA
         partial_link<-NA
         
-        if(as.character(chartType$dataType) !="table"){
+        if(as.character(chartType$dataSource) !="table"){
           link_strength<-dplyr::filter(edgeList,grepl(as.character(datSrc),dataset)) %>%
             dplyr::filter(var %in% path_var)
         }else{
@@ -161,7 +161,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
         if(nrow(tmp)==0){
           spec_list<-c(comp,
                        idx,
-                       as.character(chartType$dataType),
+                       as.character(chartType$dataSource),
                        as.character(chartType$dataID),
                        c(NA,NA,NA,NA,NA),
                        full_link,
@@ -171,10 +171,10 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
           all_links<-unique(c(partial_link,full_link,req_tmp))
           all_links<-all_links[!is.na(all_links)]
           
-          n_quant<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
-          n_qual<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          n_quant<-dplyr::filter(tmp,field_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          n_qual<-dplyr::filter(tmp,!field_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
           
-          # if(all(!is.na(full_link)) & as.character(chartType$dataType) !="table"){
+          # if(all(!is.na(full_link)) & as.character(chartType$dataSource) !="table"){
           #   tmp<-dplyr::filter(tmp,!(name %in% full_link))
           # }
           # 
@@ -183,11 +183,11 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
           #   #even if they are not perfect matches
           #   all_links<-unique(c(partial_link,full_link,req_tmp))
           # 
-          #   n_quant<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
-          #   n_qual<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          #   n_quant<-dplyr::filter(tmp,field_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
+          #   n_qual<-dplyr::filter(tmp,!field_detail %in% c("quant","qual-many")) %>% filter(name %in% all_links)
           
           if(nrow(n_quant)<3 & nrow(n_quant)>0){
-            n_quant_extra<-dplyr::filter(tmp,feild_detail %in% c("quant","qual-many")) %>%
+            n_quant_extra<-dplyr::filter(tmp,field_detail %in% c("quant","qual-many")) %>%
               anti_join(n_quant)
             if(nrow(n_quant_extra)>(3-nrow(n_quant))){
               n_quant_extra<-n_quant_extra %>% dplyr::sample_n(3-nrow(n_quant))
@@ -196,7 +196,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
           }
           
           if(nrow(n_qual)<2 & nrow(n_qual)>0){
-            n_qual_extra<-dplyr::filter(tmp,!feild_detail %in% c("quant","qual-many")) %>%
+            n_qual_extra<-dplyr::filter(tmp,!field_detail %in% c("quant","qual-many")) %>%
               anti_join(n_qual)
             if(nrow(n_qual_extra)>(2-nrow(n_qual))){
               n_qual_extra<-n_qual_extra %>%dplyr::sample_n(2-nrow(n_qual))
@@ -207,12 +207,12 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
           tmp<-rbind(n_quant,n_qual)
           #}
           
-          total_quant =  tmp %>% dplyr::filter(feild_detail %in% c("quant","qual-many")) %>% count()
-          total_qual = tmp %>% dplyr::filter(!feild_detail %in% c("quant","qual-many")) %>% count()
+          total_quant =  tmp %>% dplyr::filter(field_detail %in% c("quant","qual-many")) %>% count()
+          total_qual = tmp %>% dplyr::filter(!field_detail %in% c("quant","qual-many")) %>% count()
           
           #Finally, generate a more complex set of specifications
           if(total_quant$n > 0 | total_qual$n>0){
-            spec_list<-assign_vars(datFeilds = tmp,
+            spec_list<-assign_vars(datfields = tmp,
                                    require_var = req_tmp,
                                    n_quant=ifelse(total_quant$n>3,3,total_quant$n),
                                    n_qual=ifelse(total_qual$n>2,2,total_qual$n))
@@ -226,7 +226,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
               if(!is.null(spec_list)){
                 spec_list<-c(comp,
                              idx,
-                             as.character(chartType$dataType),
+                             as.character(chartType$dataSource),
                              as.character(chartType$dataID),
                              spec_list,
                              full_linkage,
@@ -235,7 +235,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
             }else{
               spec_list<-cbind(rep(comp,rep_len),
                                rep(idx,rep_len),
-                               rep(as.character(chartType$dataType),rep_len),
+                               rep(as.character(chartType$dataSource),rep_len),
                                rep(as.character(chartType$dataID,rep_len)),
                                spec_list,
                                rep(as.character(full_linkage,rep_len)),
@@ -258,7 +258,7 @@ get_spec_list_old<-function(harmon_obj=NULL,usrChoices = NULL){
   }
   spec_list_all<-data.frame(graph_component = spec_list_all[,1],
                             graph_path = spec_list_all[,2],
-                            dataType = spec_list_all[,3],
+                            dataSource = spec_list_all[,3],
                             dataSource = spec_list_all[,4],
                             quant_1 =spec_list_all[,5],
                             quant_2=spec_list_all[,6],
@@ -324,8 +324,8 @@ clean_up_spec_old<-function(path_specs = NULL,top_n = 10){
         
         #ordering variables
         var_info<-var_info %>%
-          mutate(var_value = ifelse(!is.na(as.numeric(gsub("qual-","",feild_detail))),
-                                    as.numeric(gsub("qual-","",feild_detail)),
+          mutate(var_value = ifelse(!is.na(as.numeric(gsub("qual-","",field_detail))),
+                                    as.numeric(gsub("qual-","",field_detail)),
                                     13))
         #see if there's anything that's in the combo_variables and put that first
         if(!is.na(chart_specs$full_linkage)){
@@ -341,9 +341,9 @@ clean_up_spec_old<-function(path_specs = NULL,top_n = 10){
         tmp2<-c()
         
         for(j in 1:nrow(var_info)){
-          if(is.na(var_info[j,]$feild_detail)){
+          if(is.na(var_info[j,]$field_detail)){
             tmp2<-tmp2<-c(tmp2,NA)
-          }else if(var_info[j,]$feild_detail %in% c("quant","qual-many")){
+          }else if(var_info[j,]$field_detail %in% c("quant","qual-many")){
             if(length(quant)>0){
               tmp2<-c(tmp2,quant[1])
               quant<-setdiff(quant,quant[1])
@@ -352,7 +352,7 @@ clean_up_spec_old<-function(path_specs = NULL,top_n = 10){
             if(length(qual)>0){
               assign_qual<-qual[1]
               if(assign_qual == "shape"){
-                if(as.numeric(gsub("qual-","",var_info[j,]$feild_detail))<6){
+                if(as.numeric(gsub("qual-","",var_info[j,]$field_detail))<6){
                   tmp2<-c(tmp2,assign_qual)
                   qual<-setdiff(qual,qual[1])
                 } 
@@ -369,7 +369,7 @@ clean_up_spec_old<-function(path_specs = NULL,top_n = 10){
         
         #single chart specs
         chart_spec<-list(data = single_chart$dataSource,
-                         chartType = single_chart$dataType,
+                         chartType = single_chart$dataSource,
                          aes = var_info[,c("dataID","dataSource","aes_assign")])
         
         single_specs[[single_chart$dataSource]]<-chart_spec
@@ -407,17 +407,17 @@ filter_combo_old<-function(combos,require_var=NULL){
   return(combos[,idx_keep])
 }
 
-assign_vars_old<-function(data = NULL,datFeilds = NULL,require_var = NULL,n_quant=3,n_qual=2){
+assign_vars_old<-function(data = NULL,datfields = NULL,require_var = NULL,n_quant=3,n_qual=2){
   #high_degree vars have priority, because they can
   #faciliate combinations with other data
-  connect_node<-dplyr::filter(datFeilds, degree>1) %>%
+  connect_node<-dplyr::filter(datfields, degree>1) %>%
     dplyr::arrange(desc(degree)) %>%
     head(5)  
   
   require_var<-unique(c(require_var,connect_node$name))
   
-  quant<-dplyr::filter(datFeilds,feild_detail %in% c("quant","qual-many"))
-  qual<-dplyr::filter(datFeilds,!(feild_detail %in% c("quant","qual-many")))
+  quant<-dplyr::filter(datfields,field_detail %in% c("quant","qual-many"))
+  qual<-dplyr::filter(datfields,!(field_detail %in% c("quant","qual-many")))
   
   quant_require<- if (!is.null(require_var)) intersect(quant$name,require_var) else NULL
   qual_require<- if (!is.null(require_var)) intersect(qual$name,require_var) else NULL

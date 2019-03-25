@@ -1,8 +1,8 @@
 
 #' Data harmonization
 #'
-#' @param feild 
-#' @param feild_type 
+#' @param field 
+#' @param field_type 
 #' @param datSource 
 #' @param obj 
 #' @param meta 
@@ -10,21 +10,21 @@
 #' @return
 #'
 #' @examples
-get_feild_details<-function(feild = NULL,feild_type = NULL,datSource = NULL,obj=NULL,meta){
+get_field_details<-function(field = NULL,field_type = NULL,datSource = NULL,obj=NULL,meta){
   
-  if(any(c("numeric","integer","Date") %in% feild_type)){return("quant")}
+  if(any(c("numeric","integer","Date") %in% field_type)){return("quant")}
   dat_tmp<-NULL
   index<-which(meta$dataID == datSource)
   
   if(grepl("table",datSource)){
     dat_tmp<-obj[[index]]@data[[1]]
-    dat_tmp<-dat_tmp[,feild]
+    dat_tmp<-dat_tmp[,field]
   }else if (!is.null(obj[[index]]@data$metadata)){
-    if(grepl("gevitID",feild)){
+    if(grepl("gevitID",field)){
       dat_tmp<-returnItemData(index,obj,meta)
     }else{
       dat_tmp<-obj[[index]]@data$metadata
-      dat_tmp<-dat_tmp[,feild]
+      dat_tmp<-dat_tmp[,field]
     }
   }else{
     dat_tmp<-returnItemData(index,obj,meta)
@@ -69,44 +69,42 @@ data_harmonization<-function(...,dataDict=NULL){
   allObjMeta<-data.frame(dataID = sapply(allObj,function(x){x@id}),
                          dataType= sapply(allObj,function(x){x@type}),
                          dataSource = sapply(allObj,function(x){x@source}),
-                         dataEntity = rep("dataType",length(allObj)),
+                         dataEntity = rep("dataSource",length(allObj)),
                          dataEnvName = objNames,
                          stringsAsFactors = FALSE)
   
   #-------- EXPLODE DATA ------------------
-  # Explode feilds from tables and data types store them in metadata table
+  # Explode fields from tables and data types store them in metadata table
   #load necessary data dictionary
   tabScanned<-scanTab(objData=allObj,objMeta=allObjMeta,dataDict=dataDict)
-  #add exploded table feilds to data type
+  #add exploded table fields to data type
   tabScanned<-data.frame(dataID=tabScanned$variable,
                          dataType= tabScanned$class,
                          dataSource = tabScanned$tableSource,
-                         dataEntity = rep("feild",nrow(tabScanned)),
+                         dataEntity = rep("field",nrow(tabScanned)),
                          dataEnvName = tabScanned$envName,
                          stringsAsFactors = FALSE)
 
   allObjMeta<-rbind(allObjMeta,tabScanned)
-  
-  # Add some more feild details to the data
+  # Add some more field details to the data
   detail_tmp<-apply(cbind(allObjMeta$dataID,allObjMeta$dataEnvName),1,function(x){paste(x[1],x[2],sep =";")})
 
-  allObjMeta$feild_detail<-sapply(detail_tmp,function(var,obj,objMeta){
+  allObjMeta$field_detail<-sapply(detail_tmp,function(var,obj,objMeta){
     var<-strsplit(var,";")[[1]]
-    
+  
     tmp<-dplyr::filter(objMeta,dataID == var[1]) %>%
       dplyr::filter(dataEnvName == var[2])
     
-    if(tmp$dataEntity == "dataType"){
+    if(tmp$dataEntity == "dataSource"){
       return(NA)
     }
     
-    tmp<-get_feild_details(feild = tmp$dataID,
-                           feild_type = tmp$dataType,
+    tmp<-get_field_details(field = tmp$dataID,
+                           field_type = tmp$dataType,
                            datSource = tmp$dataSource,
                            obj = obj,
                            meta = objMeta)  
   },obj = allObj, objMeta =  allObjMeta) %>% unname()
-  
   
   
   #-------- FIND DATA LINKAGES ------------------
@@ -147,7 +145,7 @@ data_harmonization<-function(...,dataDict=NULL){
   exploded_graph<- exploded_graph %>%
     activate(edges) %>%
     mutate(jaccard_distance = 1-as.numeric(weights)) %>%
-    mutate(edge_type =  ifelse((jaccard_distance == 1), "direct","inferred")) %>%
+    mutate(edge_type =  ifelse((jaccard_distance == 1), "exact","inexact")) %>%
     activate(nodes) %>%
     full_join(allObjMeta,by=c("name" ="dataID")) %>%
     mutate(dataSource = ifelse(file.exists(as.character(dataSource)),name,as.character(dataSource))) %>%
@@ -156,7 +154,9 @@ data_harmonization<-function(...,dataDict=NULL){
     mutate(dataSource = ifelse(grepl("gevitID",dataSource),
                                gsub("_gevitID","",dataSource),
                                as.character(dataSource)))%>%
-    mutate(dataEntity  = ifelse(is.na(dataEntity),"feild",as.character(dataEntity))) %>%
+    mutate(dataEntity  = ifelse(is.na(dataEntity),"field",as.character(dataEntity))) %>%
+    mutate(dataEnvName = check_name(.))%>%
+    mutate(field_detail = check_field(.,allObjMeta,allObj)) %>%
     mutate(degree = centrality_degree())
   
   graph_components<-components(exploded_graph)$membership %>% stack()
@@ -165,6 +165,21 @@ data_harmonization<-function(...,dataDict=NULL){
   exploded_graph<-exploded_graph%>% activate(nodes)%>%
     inner_join(graph_components,by="name")
   
+  
+  # #fill in those missing variables for the ID
+  # entity_graph_table$field_detail<-apply(entity_graph_table[,1:6],1,function(x,meta,obj){
+  #   if(!is.na(x[6]))
+  #     return(x[6])
+  #   
+  #   if(x[4] == "dataSource")
+  #     return(NA)
+  #   
+  #   get_field_details(field = x[1],
+  #                     field_type = x[2],
+  #                     datSource = x[3],
+  #                     obj = obj,
+  #                     meta = meta)
+  # },meta = objMeta,obj=obj)
   
   #-------- RETURN HARMONIZED DATA OBJECT ------------------
   harmonized<-list("dataObj" = allObj,
@@ -222,16 +237,18 @@ subset_graph<-function(g=NULL,cutoff=0){
 #'
 #' @examples
 view_entity_graph<-function(exploded_graph = NULL,cutoff=0){
-  
   if(!"igraph" %in% class(exploded_graph))
     return("need igraph object")
 
   #Creating the graph objet to view
   p<-ggraph(exploded_graph) +
     geom_edge_link(aes(linetype = edge_type,alpha = jaccard_distance))+
-    geom_node_point(aes(shape = dataEntity,color=dataEnvName),size=4)+
-    scale_shape_manual(values = c(19,20))+
-    scale_edge_alpha_continuous(range = c(0.2,1))+
+    geom_node_point(aes(shape = dataEntity,color=dataEnvName,size=dataEntity))+
+    scale_shape_manual(values = c(15,20),name = "Entity")+
+    scale_size_manual(values=c(6,4),name="Entity")+
+    scale_edge_alpha_continuous(range = c(0.2,1),name="Jaccard Index")+
+    guides(color = guide_legend(title="Data Source"),
+           linetype = guide_legend(title="Linkage Type"))+
     theme_graph()
   
   plot(p)

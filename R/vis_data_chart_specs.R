@@ -1,7 +1,7 @@
-# -------- >> Chart and feild objects --------------
-# Information about a specific feilds
-var_obj <- function(feild=NA,feild_type = NA,req = FALSE) {
-  info <- list(feild = feild, feild_type = feild_type, req = req)
+# -------- >> Chart and field objects --------------
+# Information about a specific fields
+var_obj <- function(field=NA,field_type = NA,dataSource=NA,req = FALSE) {
+  info <- list(field = field, field_type = field_type, dataSource = dataSource,req = req)
   attr(info, "class") <- "channel_info"
   info
 }
@@ -29,8 +29,8 @@ chart_spec<-function(chart_type=NA,data=NA,...){
 }
 
 
-#Helper function to return the required feilds for a chart
-get_req_feilds<-function(spec_val){
+#Helper function to return the required fields for a chart
+get_req_fields<-function(spec_val){
   param_name<-names(spec_val)
   req<-c()
   for(item in param_name){
@@ -51,22 +51,22 @@ chart_required_specs<-list()
 #specifications for a histogram
 chart_required_specs[["histogram"]]<-chart_spec(chart_type = "histogram",
                 data = data_obj(NA,"table"),
-                x = var_obj(NA,"quant",TRUE),
-                color = var_obj(NA,"qual-12",FALSE))
+                x = var_obj(NA,"quant",dataSource=NA,TRUE),
+                color = var_obj(NA,"qual-12",dataSource=NA,FALSE))
 
 # ---- Density Plot 1-D ----
 #specifications for a density plot
 chart_required_specs[["density"]]<-chart_spec(chart_type = "density",
                       data = data_obj(NA,"table"),
-                      x = var_obj(NA,"quant",TRUE),
-                      color = var_obj(NA,"qual-12",FALSE))
+                      x = var_obj(NA,"quant",dataSource=NA,TRUE),
+                      color = var_obj(NA,"qual-12",dataSource=NA,FALSE))
 
 # ---- Bar Chart ----
 #specifications for a bar chart
 chart_required_specs[["bar"]]<-chart_spec(chart_type = "bar",
                      data = data_obj(NA,"table"),
-                     x = var_obj(NA,"qual-12",TRUE),
-                     color = var_obj(NA,"qual-12",FALSE))
+                     x = var_obj(NA,"qual-12",dataSource=NA,TRUE),
+                     color = var_obj(NA,"qual-12",dataSource=NA,FALSE))
 
 # ---- Line Chart ----
 #specifications of a line chart
@@ -81,26 +81,26 @@ chart_required_specs[["bar"]]<-chart_spec(chart_type = "bar",
 #specifications for a scatter charts
 chart_required_specs[["scatter"]]<-chart_spec(chart_type = "scatter",
                        data = data_obj(NA,"table"),
-                       x=var_obj(NA,"quant|qual-many",TRUE),
-                       y=var_obj(NA,"quant|qual-many",TRUE),
-                       color = var_obj(NA,"qual-12",FALSE),
-                       shape = var_obj(NA,"qual-6",FALSE))
+                       x=var_obj(NA,"quant|qual-many",dataSource=NA,TRUE),
+                       y=var_obj(NA,"quant|qual-many",dataSource=NA,TRUE),
+                       color = var_obj(NA,"qual-12",dataSource=NA,FALSE),
+                       shape = var_obj(NA,"qual-6",dataSource=NA,FALSE))
 
 # ---- Boxplot ----
 #specifications for a box_plot
 chart_required_specs[["boxplot"]]<-chart_spec(chart_type = "boxplot",
                  data = data_obj(NA,"table"),
-                 x = var_obj(NA,"qual-12",TRUE),
-                 y = var_obj(NA,"quant",TRUE),
-                 color = var_obj(NA,"qual-12",FALSE))
+                 x = var_obj(NA,"qual-12",dataSource=NA,TRUE),
+                 y = var_obj(NA,"quant",dataSource=NA,TRUE),
+                 color = var_obj(NA,"qual-12",dataSource=NA,FALSE))
 
 # ---- Heatmap ----
 #specifications for a heatmap
 chart_required_specs[["heatmap"]]<-chart_spec(chart_type = "heatmap",
                  data = data_obj(NA,"table"),
-                 x = var_obj(NA,"qual",TRUE),
-                 y = var_obj(NA,"qual",TRUE),
-                 color = var_obj(NA,"quant",TRUE))
+                 x = var_obj(NA,"qual",dataSource=NA,TRUE),
+                 y = var_obj(NA,"qual",dataSource=NA,TRUE),
+                 color = var_obj(NA,"quant",dataSource=NA,TRUE))
 
 # ---- Tile chart ----
 #specifications for a tile chart
@@ -108,27 +108,25 @@ chart_required_specs[["heatmap"]]<-chart_spec(chart_type = "heatmap",
 #be a qualtitative value
 chart_required_specs[["tile"]]<-chart_spec(chart_type = "tile",
                                      data = data_obj(NA,"table"),
-                                     x = var_obj(NA,"qual",TRUE),
-                                     y = var_obj(NA,"qual",TRUE),
-                                     color = var_obj(NA,"qual-12",TRUE))
+                                     x = var_obj(NA,"qual",dataSource=NA,TRUE),
+                                     y = var_obj(NA,"qual",dataSource=NA,TRUE),
+                                     color = var_obj(NA,"qual-12",dataSource=NA,TRUE))
 
 # ---- Phylogenetic Tree ----
 chart_required_specs[["phylogenetic tree"]]<-chart_spec(chart_type = "phylogenetic tree",
                                            data = data_obj(NA,"phyloTree"),
                                            metadata = data_obj(NA,"table"),
-                                           x = var_obj(NA,"qual",FALSE),
-                                           y = var_obj(NA,"qual",FALSE),
-                                           color = var_obj(NA,"qual-12",FALSE),
-                                           shape = var_obj(NA,"qual-12",FALSE))
+                                           color = var_obj(NA,"qual-12",dataSource=NA,FALSE),
+                                           shape = var_obj(NA,"qual-6",dataSource=NA,FALSE))
 
 # ---- Image ----
 chart_required_specs[["image"]]<-chart_spec(chart_type = "phylogenetic tree",
                                            data = data_obj(NA,"image"),
                                            metadata = data_obj(NA,"table"),
-                                           x = var_obj(NA,"quant",FALSE),
-                                           y = var_obj(NA,"quant",FALSE),
-                                           color = var_obj(NA,"qual-12",FALSE),
-                                           shape = var_obj(NA,"qual-12",FALSE))
+                                           x = var_obj(NA,"quant",dataSource=NA,FALSE),
+                                           y = var_obj(NA,"quant",dataSource=NA,FALSE),
+                                           color = var_obj(NA,"qual-12",dataSource=NA,FALSE),
+                                           shape = var_obj(NA,"qual-12",dataSource=NA,FALSE))
 
 # ---- Alignment ----
 chart_required_specs[["alignment"]]<-chart_spec(chart_type = "alignment",
@@ -137,7 +135,7 @@ chart_required_specs[["alignment"]]<-chart_spec(chart_type = "alignment",
 # ---- Choropleth ----
 chart_required_specs[["choropleth"]]<-chart_spec(chart_type = "choropleth",
                                                 data = data_obj(NA,"spatial"),
-                                                color = var_obj(NA,"qual-12",FALSE))
+                                                color = var_obj(NA,"quant|qual-12",dataSource=NA,FALSE))
 
 
 

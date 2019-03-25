@@ -4,6 +4,12 @@
 scanTab<-function(tabIndex=NA,objData = NULL,objMeta=NULL,dataDict=NULL){
   #no table index has been provided, so get one yourself
   
+  # if(!is.na(tabIndex)){
+  #   if(objData[[tabIndex]]@type == "spatial"){
+  #     browser()
+  #   }
+  # }
+  
   if(is.na(tabIndex)){
     #check which objects are tables
     tabIndex<-which(objMeta$dataType == "table")
@@ -198,7 +204,7 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
   if(length(allObj) < 2)
     return(NULL)
   
-  noQuantMeta<-dplyr::filter(allObjMeta,is.na(feild_detail) | grepl("qual",feild_detail))
+  noQuantMeta<-dplyr::filter(allObjMeta,is.na(field_detail) | grepl("qual",field_detail))
   
   #list all pairwise combinations
   combos<-combn(1:length(allObj),m=2)
@@ -216,7 +222,7 @@ findLink<-function(allObj=NA,allObjMeta = NA,cutoff=1){
     item_one_name = as.character(noQuantMeta[combo[1],"dataID"])
     item_two_name = as.character(noQuantMeta[combo[2],"dataID"])
     
-    #check if non-tabular objects "exploded feilds" better to link on that
+    #check if non-tabular objects "exploded fields" better to link on that
     if(item_one_name %in% noQuantMeta$dataSource & as.character(noQuantMeta[combo[1],"dataType"])!="table"){
       returnItemData(combo[1],allObj,noQuantMeta,TRUE)
     }

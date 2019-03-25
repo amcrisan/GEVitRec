@@ -9,6 +9,8 @@ devtools::load_all() #temporary once things are done
 
 ## Loading data
 ```{r}
+start_time <- Sys.time()
+
 library(mincombinr) # for displaying the resulting and loading the data
 devtools::load_all() #loading gevitrec
 
@@ -33,6 +35,8 @@ Modify the spatial objections to that they're more interesting to work with
 ```{r}
 #join the spatial files
 all_spatial<-join_spatial_data(gin_shape_dat,lbr_shape_dat,sle_shape_dat,obj_names = c("GIN","LBR","SLE"))
+
+
 ```
 
 
@@ -73,8 +77,35 @@ component_specs<-get_spec_list(harmon_obj)
 #the messy code to make on figure
 #IT WORKS IT BLOODY WORKS!
 
-#But this runs into a bug ... vv
-plot_view(component_specs,view_num=1)
+#But this runs into a bug ... 
+```
+
+```{r}
+plot_view(component_specs,view_num=5)
+```
+
+```{r}
+plot_view(component_specs,view_num=2)
+```
+
+```{r}
+plot_view(component_specs,view_num=3)
+```
+
+```{r}
+plot_view(component_specs,view_num=4)
+```
+
+```{r}
+plot_view(component_specs,view_num=5)
+```
+
+
+```{r}
+end_time <- Sys.time()
+
+print(end_time - start_time)
+
 ```
 
 ```{r}

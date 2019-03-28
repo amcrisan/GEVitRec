@@ -115,8 +115,10 @@ get_all_chart_specs<-function(vars=NULL,dats=NULL,required_var=NULL,edgeList = N
   #unaligned or small multiples
   
   for(dat in dats$dataID){
-    #vis_fields<-dplyr::filter(vars,dataSource == dat)
-    vis_fields<-get_vis_fields(vars,dat,edgeList,path_var)
+    vis_fields<-dplyr::filter(vars,dataSource == dat)
+    if(nrow(vis_fields)==1){
+      vis_fields<-get_vis_fields(vars,dat,edgeList,path_var)
+    }
     dat_type<-dplyr::filter(dats,dataID == dat)$dataType
     #dat_env_name<-dplyr::filter(dats,dataID == dat)$dataEnvName
     
@@ -125,9 +127,10 @@ get_all_chart_specs<-function(vars=NULL,dats=NULL,required_var=NULL,edgeList = N
     
     #remove ID objects
     if(is.null(vis_fields)){
-      browser()
+      #browser()
       get_vis_fields(vars,dat,edgeList,path_var,TRUE)
     }
+    
     vis_fields<-dplyr::filter(vis_fields,!grepl("_gevitID",name))
     chart_specs<-get_charts_specs(vis_fields,required_tmp,dat_type,dat)
     all_specs[[dat]]<-chart_specs
@@ -179,7 +182,7 @@ clean_up_spec<-function(all_specs = NULL,entity_graph_table=NULL,max_comp_spec=2
       #hard build in - show how five charts per path
       #these charts will be shown (for now) in the many
       #types linked configuration
-      
+
       priorities<-sapply(path_vis,function(x){
         x1<-ifelse(is.na(x$relvance),0,x$relvance)
         x2<-ifelse(is.na(x$fields_total) | x$fields_total ==0,0,x$fields_total)
@@ -190,11 +193,33 @@ clean_up_spec<-function(all_specs = NULL,entity_graph_table=NULL,max_comp_spec=2
       }) %>% sort(.,decreasing=TRUE)
       
       if(length(priorities) > 5){
-        keep_list<-match(names(priorities[1:5]),names(path_vis))
+        all_names<-names(priorities)
+        all_names_data<-unique(sapply(all_names,function(x){strsplit(x,"-")[[1]][1]}))
+        
+        idx_total<-1
+        iter_track<-0
+        keep_list<-c()
+        
+        while(idx_total<=5 | iter_track>10){
+          for(item in all_names_data){
+            idx_tmp<-grep(paste0(item,"-"),all_names)
+            if(length(idx_tmp)==0) next
+            keep_list<-c(keep_list,all_names[idx_tmp[1]])
+            all_names<-setdiff(all_names,all_names[idx_tmp[1]])
+            idx_total<-idx_total+1
+          }
+        iter_track<-iter_track+1
+        }
+        
+      
+        keep_list_idx<-match(keep_list,names(path_vis))
         path_vis<-path_vis[keep_list]
-        priorities<-priorities[1:5]
+        
+        keep_list_idx<-match(keep_list,names(priorities))
+        priorities<-priorities[keep_list_idx]
       }
       
+
       path_vis_single_specs<-lapply(path_vis,function(x){
         base_spec<-convert_to_mincombinr(x$spec,entity_graph_table)
       })
@@ -212,7 +237,7 @@ clean_up_spec<-function(all_specs = NULL,entity_graph_table=NULL,max_comp_spec=2
 convert_to_mincombinr<-function(rough_spec=NULL,entity_graph_table=NULL){
   #create a mincombir compatible specification
   print("Generating mincombinr spec")
-  
+
   datSrcs<-lapply(rough_spec,function(chan){
     if(class(chan) == "data_info"){
       return(chan$datSrc)
@@ -228,7 +253,7 @@ convert_to_mincombinr<-function(rough_spec=NULL,entity_graph_table=NULL){
   
   if(length(datSrcs)>1){
     envObj<-dplyr::filter(entity_graph_table,name %in% datSrcs)$dataEnvName
-    
+
     for(envItem in envObj){
       #set and initital value
       #for the metadata

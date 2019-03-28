@@ -7,10 +7,13 @@ plot_view<-function(view_obj = NULL,view_num=NULL){
   }
   
   view_obj<-view_obj[[view_num]]
+  #for(view_num in 1:5){
+  #  view_tmp<-view_obj[[view_num]]
+  #  print(sapply(view_tmp$single_charts,function(x){x$chart_type}))
+  #}
   
   #for each spec in the single view, assign the variable to the environment
   var_tmp<-"chart_spec"
-  
   vars<-c()
   for(i in 1:length(view_obj$single_charts)){
     chart_spec<-view_obj$single_charts[[i]]
@@ -21,6 +24,7 @@ plot_view<-function(view_obj = NULL,view_num=NULL){
   
   combo_plot<-mincombinr::specify_combination(combo_type = "many_types_general",base_charts = vars)
   
+
   #plot a many types general combination
   plot(combo_plot)
   

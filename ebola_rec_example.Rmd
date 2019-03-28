@@ -1,13 +1,8 @@
 ---
-title: "GEViTRec"
-author: "Anamaria Crisan"
-date: '2019-02-01'
-output: html_document
+title: "R Notebook"
+output: html_notebook
 ---
 
-devtools::load_all() #temporary once things are done
-
-## Loading data
 ```{r}
 start_time <- Sys.time()
 set.seed(416)
@@ -32,17 +27,12 @@ lbr_shape_dat<-input_data(file = system.file("./inst/extdata/", "lbr_admbnda_adm
 sle_shape_dat<-input_data(file = system.file("extdata/", "sle_admbnda_adm1_1m_gov_ocha_20161017.shp",package = "gevitRec"),dataType = "spatial")
 ```
 
+
 Modify the spatial objections to that they're more interesting to work with
 ```{r}
 #join the spatial files
 all_spatial<-join_spatial_data(gin_shape_dat,lbr_shape_dat,sle_shape_dat,obj_names = c("GIN","LBR","SLE"))
-
-#GEViTRec does not perform any aggregation or detailed analysis on the data, so here I will modify and clean up the metadata
-#To get it into some shape that I actually care about. Users don't have to do this step, but it can be helpful
-#to derive additional information.
-
 ```
-
 
 ## Data Harmonization
 ```{r}
@@ -50,39 +40,13 @@ harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,all_spatial)
 view_entity_graph(harmon_obj[["entityGraph"]])
 ```
 
-Now let's change the metadata up a bit, so that the program can link it more directly
-to the tabular data. The code below adds the tabular data site.id variable to the spatial metadata
-this will create more exact linkages.
 
-```{r}
-
-meta_tmp<-data.frame(point_id = tab_dat@data$table$site_id,stringsAsFactors = FALSE)
-all_spatial@data$metadata<-meta_tmp
-
-harmon_obj<-data_harmonization(tab_dat,tree_dat,genomic_dat,all_spatial)
-view_entity_graph(harmon_obj[["entityGraph"]])
-
-```
-
-It's also possible to filter according to the strength of the jaccard distance strength. A strength of 1 means that two variables in different datasets are effectively the same (have set equality), whereas 0 means that they have nothing in common.
-```{r}
-view_entity_graph(subset_graph(harmon_obj[["entityGraph"]],1))
-```
-
-## Chart Recommendations
-
-With the data harmonized, it is possible to generate specifications for different charts. It possible to use the whole graph too.
-
-
-** Note there are different recursive depths depending on the degree of connectivity
+## Generate Specifications
 ```{r}
 component_specs<-get_spec_list(harmon_obj)
-
-#the messy code to make on figure
-#IT WORKS IT BLOODY WORKS!
-
-#But this runs into a bug ... 
 ```
+
+## Look at the generated views
 
 ```{r}
 plot_view(component_specs,view_num=1)
@@ -102,18 +66,4 @@ plot_view(component_specs,view_num=4)
 
 ```{r}
 plot_view(component_specs,view_num=5)
-```
-
-
-```{r}
-end_time <- Sys.time()
-
-print(end_time - start_time)
-
-```
-
-```{r}
-harmon_obj_sub<-harmon_obj
-harmon_obj_sub[["entityGraph"]]<-subset_graph(harmon_obj_sub[["entityGraph"]],1)
-tmp<-get_spec_list(harmon_obj_sub,usrChoices = c("country","year"))
 ```

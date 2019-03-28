@@ -1,15 +1,18 @@
 #Loading a storing gevitR information
-#gevit_articles<-readxl::read_xlsx(path="../../gevit_gallery_v2/data/MasterDocumentList.xlsx")
-#gevit_taxonomy<-readxl::read_xlsx(path="../../gevit_gallery_v2/data/figure_classification_final.xlsx")
+gevit_articles<-readxl::read_xlsx(path="../gevit_gallery_v2/data/MasterDocumentList.xlsx")
+gevit_taxonomy<-readxl::read_xlsx(path="../gevit_gallery_v2/data/figure_classification_final.xlsx")
+
 
 library(dplyr)
 library(tidyr)
 
+
 gevit_summary<-gevit_taxonomy %>%
   dplyr::inner_join(gevit_articles[,c("PMID","YearPub")],by = "PMID") %>%
-  mutate(chartType = stringr::str_split(chartType,";")) %>%
-  tidyr::unnest() %>%
-  select(PMID,YearPub,figID_initial,chartType,chartCombinations)
+  mutate(chartType = stringr::str_split(chartType,";")) %>% 
+  mutate(specialChartType = stringr::str_split(specialChartType,";")) %>%
+  tidyr::unnest() %>% 
+  select(PMID,YearPub,figID_initial,chartType,specialChartType,chartCombinations)
 
 gevit_summary$dataSource<-sapply(gevit_summary$chartType, function(chart_type){
   switch(chart_type,
@@ -34,6 +37,37 @@ gevit_summary$dataSource<-sapply(gevit_summary$chartType, function(chart_type){
 })
 
 gevit_summary <- dplyr::filter(gevit_summary,!is.na(dataSource))
+
+#assign distribution charts
+dist_idx<-which(gevit_summary$chartType == "Distribution Chart")
+gevit_summary[dist_idx,]$chartType <- gevit_summary[dist_idx,]$specialChartType
+
+#also, need to promote choropleth maps
+pleth_idx<-which(gevit_summary$specialChartType == "Choropleth Map")
+gevit_summary[pleth_idx,]$chartType <-"Choropleth"
+
+#dropping plot form everything
+idx<-which(gevit_summary$specialChartType == "Box Plot")
+gevit_summary[idx,]$chartType <-"boxplot"
+
+idx<-which(gevit_summary$chartType == "Scatter Plot")
+gevit_summary[idx,]$chartType <-"scatter"
+
+idx<-which(gevit_summary$chartType == "Density Plot")
+gevit_summary[idx,]$chartType <-"density"
+
+idx<-which(gevit_summary$chartType == "Swarm Plot")
+gevit_summary[idx,]$chartType <-"swarm"
+
+#dropping chart from everything
+idx<-which(gevit_summary$chartType == "Bar Chart")
+gevit_summary[idx,]$chartType <-"bar"
+
+idx<-which(gevit_summary$chartType == "Line Chart")
+gevit_summary[idx,]$chartType <-"line"
+
+
+
 
 #recompute the chart scores, penalizing for time
 #so that older visualizations take less precendence

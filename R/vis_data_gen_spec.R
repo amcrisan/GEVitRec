@@ -69,12 +69,22 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
     #seeds for the specifications
     dats<-as.numeric(V(entity_graph)[as.character(comp_data$name)])
     all_paths<-list()
-    for(source in dats){
-      # DEV NOTE:
-      #all shortest paths seems to have some randomness to it that is not
-      #stable. Better to use all simple paths and do the rank here.
-      dat_paths<-igraph::all_simple_paths(entity_graph,from=source,to=setdiff(dats,source))
-      all_paths<-append(all_paths,dat_paths)
+    pairs<-combn(dats,2)
+    for(i in 1:ncol(pairs)){
+      source<-pairs[,i]
+      
+      dat_paths<-igraph::all_simple_paths(entity_graph,from=source[1],to=source[2])
+      print(length(dat_paths))
+      
+      if(length(dat_paths)>2){
+        #rank these paths
+        rank_summary<-rank_paths(all_paths,entity_graph,datOnly)
+        keep_idx<-order(rank_summary$summary_rank,decreasing = TRUE)[1]
+        all_paths<-append(all_paths,dat_paths[keep_idx])
+      }else{
+        all_paths<-append(all_paths,dat_paths)
+      }
+      
     }
     
     #rank these paths
@@ -90,9 +100,9 @@ get_spec_list<-function(harmon_obj = NULL, usrChoices=NULL){
     
     # --- Generate specifications ----
     path_count<-1
+   
     for(idx in path_keep){
       path_var<-as_ids(all_paths[[idx]])
-      
       #all the data types in that path
       dats<-dplyr::filter(datOnly,dataID %in% gsub("_gevitID","",path_var))
       

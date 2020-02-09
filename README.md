@@ -2,7 +2,7 @@
 GEVis is a proof-of-concept implementation of a technique for automatically generating views of statistically coordinated charts (a dashboard) from multiple heterogeneous data sources. This technique is optimized for applications in genomic epidemiology.
 
 # Use
-As a proof-of-concept, GEVis is suitable only for experimental and research used. Anyone wishing to use GEVis on their own data accepts the code as is. We welcome feedback from the community and encourage users to submit problems or feature requests via the issues board in this repository.
+As a proof-of-concept, GEVis is suitable only for experimental and research use. Anyone wishing to use GEVis on their own data accepts the code as is. We welcome feedback from the community and encourage users to submit problems or feature requests via the issues board in this repository.
 
 ## Special dependencies
 
@@ -20,6 +20,6 @@ Please install magick package ahead of installing minCombinR
 ## Examples of Use
 Within the installation folder (/inst), we present the application of GEVis, using RMarkdown notebooks, on a synthetic and real world dataset of the 2014-2016 Ebola Outbreak. 
 
-## Preliminary Evaluations
-We evaluated the results of GEVis with ten genomic epidemiology experts. We conducted an interview study that consisted of a chauffeured demonstration of GEVis using simulated and real data (the notebooks used for the study are within the /inst folder). 
+# Additional Online Resources
+We evaluated the results of GEVis with ten genomic epidemiology experts. We conducted an interview study that consisted of a chauffeured demonstration of GEVis using simulated and real data. The notebooks used for the study are within the /inst folder, we also make the anaonymized results available [as a resource](https://github.com/amcrisan/GEVis/files/4176496/GEVis_Supplemental.pdf). 
 

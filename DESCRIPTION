@@ -1,11 +1,11 @@
 Package: gevitRec
 Title: GEViTRec
 Version: 0.1.0
-Date: 2018-01-26
-Authors@R:person("Ana", "Crisan", email = "acrisan@cs.ubc.ca", role = c("aut", "cre"))
+Date: 2019-01-26
+Authors@R:person("Ana", "Crisan", email = "acrisan@tableau.com", role = c("aut", "cre"))
 Description: A visualization recommender engine for microbial genomic epidemiology
 RoxygenNote: 6.1.1
 License: MIT + file LICENSE
 NeedsCompilation: no
 Packaged: 2018-10-02 00:00:52 UTC; anamaria.crisan
-Maintainer: Ana Crisan <acrisan@cs.ubc.ca>
+Maintainer: Ana Crisan <acrisan@tableau.com>

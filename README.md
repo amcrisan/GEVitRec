@@ -1,5 +1,5 @@
 # Overview
-GEVis is a proof-of-concept implementation of a technique for automatically generating views of statistically coordinated charts (a dashboard) from multiple heterogeneous data sources. This technique is optimized for applications in genomic epidemiology.
+GEVis is a proof-of-concept implementation of a technique for automatically generating views of statically coordinated charts (a dashboard) from multiple heterogeneous data sources. This technique is optimized for applications in genomic epidemiology.
 
 # Use
 As a proof-of-concept, GEVis is suitable only for experimental and research use. Anyone wishing to use GEVis on their own data accepts the code as is. We welcome feedback from the community and encourage users to submit problems or feature requests via the issues board in this repository.

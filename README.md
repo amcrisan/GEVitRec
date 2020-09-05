@@ -21,5 +21,5 @@ Please install magick package ahead of installing minCombinR
 Within the installation folder (/inst), we present the application of GEVis, using RMarkdown notebooks, on a synthetic and real world dataset of the 2014-2016 Ebola Outbreak. 
 
 # Additional Online Resources
-We evaluated the results of GEVis with ten genomic epidemiology experts. We conducted an interview study that consisted of a chauffeured demonstration of GEVis using simulated and real data. The notebooks used for the study are within the /inst folder, we also make the anaonymized results available [as a resource](https://github.com/amcrisan/GEVis/files/4176496/GEVis_Supplemental.pdf). 
+We evaluated the results of GEVis with ten genomic epidemiology experts. We conducted an interview study that consisted of a chauffeured demonstration of GEVis using simulated and real data. The notebooks used for the study are within the /inst folder, we also make the anonymized results available [as a resource](https://github.com/amcrisan/GEVis/files/4176496/GEVis_Supplemental.pdf). 
 
